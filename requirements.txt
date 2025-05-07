@@ -1,0 +1,8 @@
+# Mindfulness BGM Generator Requirements
+
+# Core audio processing
+numpy
+sounddevice
+
+# For Streamlit version
+streamlit
