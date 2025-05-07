@@ -34,8 +34,8 @@ A dynamic ambient music generator designed for meditation and mindfulness practi
 1. Clone this repository:
 
 ```bash
-git clone https://github.com/yourusername/mindfulness-bgm-generator.git
-cd mindfulness-bgm-generator
+git clone https://github.com/wabisukecx/Mindfulness-BGM-Generator.git
+cd Mindfulness-BGM-Generator
 ```
 
 1. Install required packages:
