@@ -46,13 +46,7 @@ cd Mindfulness-BGM-Generator
 2. Install required packages:
 
 ```bash
-pip install numpy sounddevice
-```
-
-For the web app, also install:
-
-```bash
-pip install streamlit
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -261,13 +255,7 @@ cd Mindfulness-BGM-Generator
 2. 必要なパッケージをインストール：
 
 ```bash
-pip install numpy sounddevice
-```
-
-ウェブアプリの場合は、以下もインストール：
-
-```bash
-pip install streamlit
+pip install -r requirements.txt
 ```
 
 ## 使用方法
