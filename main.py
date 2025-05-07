@@ -4,7 +4,7 @@ import threading
 import time
 import random
 import argparse
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 from enum import Enum
 
 
@@ -29,7 +29,7 @@ LFO_FREQ = 0.03     # LFO frequency (Hz)
 BREATH_CYCLE = 0.2  # Breathing rhythm frequency (Hz)
 
 # Default ambient sound ratio
-DEFAULT_AMBIENT_RATIO = 0.15  # Default ambient sound mix ratio
+DEFAULT_AMBIENT_RATIO = 0.3  # Default ambient sound mix ratio (increased)
 
 # ─────────────────────────────────────────────────────────────────
 # Pentatonic scale
@@ -154,12 +154,15 @@ class TibetanBell:
         self.is_playing = False
         self.bell_phase = 0
         self.bell_start_time = 0
+        self.current_freq = 2000  # デフォルト周波数
         
-    def trigger(self):
+    def trigger(self, freq: float = None):
         """Ring the bell"""
         self.is_playing = True
         self.bell_phase = 0
         self.bell_start_time = 0
+        if freq:
+            self.current_freq = freq
         
     def generate(self, frames: int) -> np.ndarray:
         """Generate bell sound"""
@@ -169,8 +172,8 @@ class TibetanBell:
         t = (np.arange(frames) + self.bell_phase) / self.sample_rate
         
         # Two frequencies (dissonant for bell-like quality)
-        f1 = 2000
-        f2 = 2100
+        f1 = self.current_freq
+        f2 = self.current_freq * 1.05  # 軽い不協和
         
         # Bell sound components
         wave1 = np.sin(2 * np.pi * f1 * t)
@@ -256,8 +259,24 @@ class MindfulnessBGM:
             wait_time = random.uniform(self.bell_config.min_interval, 
                                      self.bell_config.max_interval)
             time.sleep(wait_time)
-            with self.lock:
-                self.tibetan_bell.trigger()
+            
+            # 1〜3回鳴らす
+            num_strikes = random.randint(1, 3)
+            for i in range(num_strikes):
+                with self.lock:
+                    # 現在のコードから音を選択
+                    if self.chord:
+                        base_freq = random.choice(self.chord)
+                        # ベル用に高音域へトランスポーズ
+                        freq = base_freq * random.choice([4, 5, 6, 8])
+                    else:
+                        # コードがない場合は従来通り
+                        freq = random.choice(BASE_FREQS) * random.choice([4, 5, 6, 8])
+                    self.tibetan_bell.trigger(freq)
+                
+                # 連続で鳴らす場合の間隔（四分音符〜全音符）
+                if i < num_strikes - 1:
+                    time.sleep(random.uniform(1.0, 4.0))
 
     def _drum_scheduler(self):
         """Slit drum scheduler"""
@@ -266,9 +285,24 @@ class MindfulnessBGM:
             wait_time = random.uniform(self.drum_config.min_interval, 
                                      self.drum_config.max_interval)
             time.sleep(wait_time)
-            with self.lock:
-                freq = random.choice(BASE_FREQS[:3]) / 2
-                self.slit_drum.trigger(freq)
+            
+            # 1〜3回鳴らす
+            num_strikes = random.randint(1, 3)
+            for i in range(num_strikes):
+                with self.lock:
+                    # 現在のコードから音を選択
+                    if self.chord:
+                        base_freq = random.choice(self.chord)
+                        # ドラム用に低音域へトランスポーズ
+                        freq = base_freq * random.choice([0.25, 0.5, 0.75])
+                    else:
+                        # コードがない場合は従来通り
+                        freq = random.choice(BASE_FREQS[:3]) * random.choice([0.5, 0.75, 1])
+                    self.slit_drum.trigger(freq)
+                
+                # 連続で鳴らす場合の間隔（四分音符〜二分音符）
+                if i < num_strikes - 1:
+                    time.sleep(random.uniform(1.0, 3.0))
 
     def _handpan_scheduler(self):
         """Handpan scheduler"""
@@ -277,9 +311,24 @@ class MindfulnessBGM:
             wait_time = random.uniform(self.handpan_config.min_interval, 
                                      self.handpan_config.max_interval)
             time.sleep(wait_time)
-            with self.lock:
-                freq = random.choice(BASE_FREQS)
-                self.handpan.trigger(freq)
+            
+            # 1〜3回鳴らす
+            num_strikes = random.randint(1, 3)
+            for i in range(num_strikes):
+                with self.lock:
+                    # 現在のコードから音を選択
+                    if self.chord:
+                        base_freq = random.choice(self.chord)
+                        # ハンドパン用に中音域へトランスポーズ
+                        freq = base_freq * random.choice([1, 2, 3])
+                    else:
+                        # コードがない場合は従来通り
+                        freq = random.choice(BASE_FREQS) * random.choice([1, 1.5, 2])
+                    self.handpan.trigger(freq)
+                
+                # 連続で鳴らす場合の間隔（四分音符〜付点二分音符）
+                if i < num_strikes - 1:
+                    time.sleep(random.uniform(1.0, 3.5))
 
     def _event_scheduler(self):
         """Schedule random events"""
@@ -326,21 +375,23 @@ class MindfulnessBGM:
         self._change_chord()
 
     def _create_chord(self) -> List[float]:
-        """Generate well-balanced chords"""
+        """Generate chords suitable for mindfulness"""
         root = random.choice(BASE_FREQS)
         
-        # Well-balanced chord types
+        # Mindfulness-oriented chord types
         chord_types = [
-            ([0, 7, 12], "Open Fifth"),          # Open fifth
-            ([0, 4, 7], "Major"),                # Major
-            ([0, 3, 7], "Minor"),                # Minor
-            ([0, 5, 12], "Sus4"),                # Sus4
-            ([0, 2, 7], "Sus2"),                 # Sus2
-            ([0, 7, 14], "Add9"),                # Add9
-            ([0, 4, 7, 12], "Major 7"),          # Major 7
-            ([0, 3, 7, 12], "Minor 7"),          # Minor 7
-            ([0, 5, 10], "Quartal"),             # Quartal harmony
-            ([0, 7, 12, 19], "Open Octave"),     # Open octave
+            ([0], "Single Note"),                     # 単音（ドローン）
+            ([0, 12], "Octave"),                      # オクターブ
+            ([0, 7], "Perfect Fifth"),                # 完全5度
+            ([0, 7, 12], "Open Fifth Octave"),        # 開放的な5度とオクターブ
+            ([0, 5], "Perfect Fourth"),               # 完全4度
+            ([0, 5, 10], "Quartal Stack"),            # 4度堆積（浮遊感）
+            ([0, 5, 10, 15], "Extended Quartal"),     # 拡張4度堆積
+            ([0, 2, 7], "Sus2"),                      # サスペンデッド2（開放的）
+            ([0, 7, 14], "Double Octave Fifth"),      # 2オクターブ5度
+            ([0, 12, 19], "Octave Plus Fifth"),       # オクターブ＋5度
+            ([0, 2, 9], "Add9 Open"),                 # 開放的な9度
+            ([0, 7, 17], "Tenth"),                    # 10度（広い間隔）
         ]
         
         intervals, chord_name = random.choice(chord_types)
@@ -409,25 +460,29 @@ class MindfulnessBGM:
         return output
 
     def generate_nature_sounds(self, frames: int) -> np.ndarray:
-        """Generate nature sounds (richer)"""
+        """Generate nature sounds (enhanced volume)"""
         if self.ambient_ratio == 0:
             return np.zeros(frames)
         
         t = (np.arange(frames) + self.noise_state) / self.sample_rate
         
-        # Ocean waves (combining multiple frequencies)
-        ocean1 = np.sin(2 * np.pi * 0.05 * t) * 0.03
-        ocean2 = np.sin(2 * np.pi * 0.08 * t + np.pi/3) * 0.02
-        ocean3 = np.sin(2 * np.pi * 0.03 * t + np.pi/6) * 0.01
+        # Ocean waves (enhanced volume)
+        ocean1 = np.sin(2 * np.pi * 0.05 * t) * 0.08
+        ocean2 = np.sin(2 * np.pi * 0.08 * t + np.pi/3) * 0.06
+        ocean3 = np.sin(2 * np.pi * 0.03 * t + np.pi/6) * 0.04
+        ocean4 = np.sin(2 * np.pi * 0.02 * t + np.pi/2) * 0.03
         
-        # Wind sound (filtered noise)
-        wind = np.random.randn(frames) * 0.005
-        # Simple low-pass filter
+        # Wind sound (enhanced and more dynamic)
+        wind = np.random.randn(frames) * 0.02
+        # Multi-stage filtering for more natural wind
         for i in range(1, frames):
-            wind[i] = 0.9 * wind[i-1] + 0.1 * wind[i]
+            wind[i] = 0.85 * wind[i-1] + 0.15 * wind[i]
+        
+        # Add low-frequency rumble for depth
+        rumble = np.sin(2 * np.pi * 0.01 * t) * 0.02
         
         self.noise_state += frames
-        return ocean1 + ocean2 + ocean3 + wind
+        return ocean1 + ocean2 + ocean3 + ocean4 + wind + rumble
 
     def callback(self, outdata, frames, time_info, status):
         """Audio callback"""
@@ -505,9 +560,10 @@ class MindfulnessBGM:
         # Apply reverb
         current_wave = self.apply_reverb(current_wave)
         
-        # Mix
+        # Mix (enhanced ambient presence)
         if self.ambient_ratio > 0:
-            sig = current_wave * (1 - self.ambient_ratio) + nature_sounds * self.ambient_ratio
+            # Slightly reduce main signal to prevent clipping
+            sig = current_wave * (1 - self.ambient_ratio) * 0.9 + nature_sounds * self.ambient_ratio * 1.2
         else:
             sig = current_wave
         
@@ -558,6 +614,8 @@ def main():
                       help="Handpan interval in seconds")
     parser.add_argument("--ambient", type=str, default=str(DEFAULT_AMBIENT_RATIO),
                       help=f"Ambient sound ratio (0-1, default: {DEFAULT_AMBIENT_RATIO})")
+    parser.add_argument("--instrument", type=str, default=None,
+                      help="Specify instrument: bell, drum, or handpan")
     
     args = parser.parse_args()
     
@@ -566,9 +624,22 @@ def main():
     drum_min, drum_max = parse_instrument_interval(args.drum)
     handpan_min, handpan_max = parse_instrument_interval(args.handpan)
     
-    bell_config = InstrumentConfig(bell_min, bell_max, bell_min > 0)
-    drum_config = InstrumentConfig(drum_min, drum_max, drum_min > 0)
-    handpan_config = InstrumentConfig(handpan_min, handpan_max, handpan_min > 0)
+    # Choose single instrument
+    if args.instrument:
+        # Use specified instrument
+        selected_instrument = args.instrument.lower()
+    else:
+        # Randomly select one instrument
+        selected_instrument = random.choice(['bell', 'drum', 'handpan'])
+    
+    # Enable only the selected instrument
+    bell_enabled = (selected_instrument == 'bell' and bell_min > 0)
+    drum_enabled = (selected_instrument == 'drum' and drum_min > 0)
+    handpan_enabled = (selected_instrument == 'handpan' and handpan_min > 0)
+    
+    bell_config = InstrumentConfig(bell_min, bell_max, bell_enabled)
+    drum_config = InstrumentConfig(drum_min, drum_max, drum_enabled)
+    handpan_config = InstrumentConfig(handpan_min, handpan_max, handpan_enabled)
     
     # Parse ambient sound settings
     ambient_ratio = parse_ambient_value(args.ambient)
@@ -584,17 +655,17 @@ def main():
     print("\nInstrument settings:")
     
     if bell_config.enabled:
-        print(f"- Tibetan bell: {bell_config.min_interval:.1f}-{bell_config.max_interval:.1f} seconds")
+        print(f"- Tibetan bell: {bell_config.min_interval:.1f}-{bell_config.max_interval:.1f} seconds (SELECTED)")
     else:
         print("- Tibetan bell: DISABLED")
     
     if drum_config.enabled:
-        print(f"- Slit drum: {drum_config.min_interval:.1f}-{drum_config.max_interval:.1f} seconds")
+        print(f"- Slit drum: {drum_config.min_interval:.1f}-{drum_config.max_interval:.1f} seconds (SELECTED)")
     else:
         print("- Slit drum: DISABLED")
     
     if handpan_config.enabled:
-        print(f"- Handpan: {handpan_config.min_interval:.1f}-{handpan_config.max_interval:.1f} seconds")
+        print(f"- Handpan: {handpan_config.min_interval:.1f}-{handpan_config.max_interval:.1f} seconds (SELECTED)")
     else:
         print("- Handpan: DISABLED")
     
