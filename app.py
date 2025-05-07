@@ -593,15 +593,28 @@ def start_bgm():
     sd.default.blocksize = BUFFER_FRAMES
     sd.default.channels = 2
     
-    stream = sd.OutputStream(callback=generator.callback)
-    stream.start()
-    
-    # Update session state
-    st.session_state.generator = generator
-    st.session_state.stream = stream
-    st.session_state.is_playing = True
-    st.session_state.selected_instrument = selected
-    st.session_state.current_status = f"Playing with {selected.title()}"
+    try:
+        stream = sd.OutputStream(callback=generator.callback)
+        stream.start()
+        
+        # Update session state
+        st.session_state.generator = generator
+        st.session_state.stream = stream
+        st.session_state.is_playing = True
+        st.session_state.selected_instrument = selected
+        st.session_state.current_status = f"Playing with {selected.title()}"
+    except sd.PortAudioError as e:
+        # Stop generator threads
+        generator.stop()
+        st.session_state.current_status = "Audio device not available"
+        st.error("Audio device is not available in this environment. Please run the application locally to use audio features.")
+        st.warning("Streamlit Cloud does not support audio device access. To use this application with full functionality, please download and run it on your local machine.")
+        st.code("""
+# Installation steps for local execution:
+1. Clone the repository or download the files
+2. Install requirements: pip install -r requirements.txt
+3. Run locally: streamlit run app.py
+        """, language="bash")
 
 
 def stop_bgm():
