@@ -154,7 +154,7 @@ class TibetanBell:
         self.is_playing = False
         self.bell_phase = 0
         self.bell_start_time = 0
-        self.current_freq = 2000  # デフォルト周波数
+        self.current_freq = 2000  # Default frequency
         
     def trigger(self, freq: float = None):
         """Ring the bell"""
@@ -173,7 +173,7 @@ class TibetanBell:
         
         # Two frequencies (dissonant for bell-like quality)
         f1 = self.current_freq
-        f2 = self.current_freq * 1.05  # 軽い不協和
+        f2 = self.current_freq * 1.05  # Slight dissonance
         
         # Bell sound components
         wave1 = np.sin(2 * np.pi * f1 * t)
@@ -260,21 +260,21 @@ class MindfulnessBGM:
                                      self.bell_config.max_interval)
             time.sleep(wait_time)
             
-            # 1〜3回鳴らす
+            # Strike 1-3 times
             num_strikes = random.randint(1, 3)
             for i in range(num_strikes):
                 with self.lock:
-                    # 現在のコードから音を選択
+                    # Select note from current chord
                     if self.chord:
                         base_freq = random.choice(self.chord)
-                        # ベル用に高音域へトランスポーズ
+                        # Transpose to high range for bell
                         freq = base_freq * random.choice([4, 5, 6, 8])
                     else:
-                        # コードがない場合は従来通り
+                        # If no chord, use traditional method
                         freq = random.choice(BASE_FREQS) * random.choice([4, 5, 6, 8])
                     self.tibetan_bell.trigger(freq)
                 
-                # 連続で鳴らす場合の間隔（四分音符〜全音符）
+                # Interval between consecutive strikes (quarter note to whole note)
                 if i < num_strikes - 1:
                     time.sleep(random.uniform(1.0, 4.0))
 
@@ -286,21 +286,21 @@ class MindfulnessBGM:
                                      self.drum_config.max_interval)
             time.sleep(wait_time)
             
-            # 1〜3回鳴らす
+            # Strike 1-3 times
             num_strikes = random.randint(1, 3)
             for i in range(num_strikes):
                 with self.lock:
-                    # 現在のコードから音を選択
+                    # Select note from current chord
                     if self.chord:
                         base_freq = random.choice(self.chord)
-                        # ドラム用に低音域へトランスポーズ
+                        # Transpose to low range for drum
                         freq = base_freq * random.choice([0.25, 0.5, 0.75])
                     else:
-                        # コードがない場合は従来通り
+                        # If no chord, use traditional method
                         freq = random.choice(BASE_FREQS[:3]) * random.choice([0.5, 0.75, 1])
                     self.slit_drum.trigger(freq)
                 
-                # 連続で鳴らす場合の間隔（四分音符〜二分音符）
+                # Interval between consecutive strikes (quarter note to half note)
                 if i < num_strikes - 1:
                     time.sleep(random.uniform(1.0, 3.0))
 
@@ -312,21 +312,21 @@ class MindfulnessBGM:
                                      self.handpan_config.max_interval)
             time.sleep(wait_time)
             
-            # 1〜3回鳴らす
+            # Strike 1-3 times
             num_strikes = random.randint(1, 3)
             for i in range(num_strikes):
                 with self.lock:
-                    # 現在のコードから音を選択
+                    # Select note from current chord
                     if self.chord:
                         base_freq = random.choice(self.chord)
-                        # ハンドパン用に中音域へトランスポーズ
+                        # Transpose to middle range for handpan
                         freq = base_freq * random.choice([1, 2, 3])
                     else:
-                        # コードがない場合は従来通り
+                        # If no chord, use traditional method
                         freq = random.choice(BASE_FREQS) * random.choice([1, 1.5, 2])
                     self.handpan.trigger(freq)
                 
-                # 連続で鳴らす場合の間隔（四分音符〜付点二分音符）
+                # Interval between consecutive strikes (quarter note to dotted half note)
                 if i < num_strikes - 1:
                     time.sleep(random.uniform(1.0, 3.5))
 
@@ -380,18 +380,18 @@ class MindfulnessBGM:
         
         # Mindfulness-oriented chord types
         chord_types = [
-            ([0], "Single Note"),                     # 単音（ドローン）
-            ([0, 12], "Octave"),                      # オクターブ
-            ([0, 7], "Perfect Fifth"),                # 完全5度
-            ([0, 7, 12], "Open Fifth Octave"),        # 開放的な5度とオクターブ
-            ([0, 5], "Perfect Fourth"),               # 完全4度
-            ([0, 5, 10], "Quartal Stack"),            # 4度堆積（浮遊感）
-            ([0, 5, 10, 15], "Extended Quartal"),     # 拡張4度堆積
-            ([0, 2, 7], "Sus2"),                      # サスペンデッド2（開放的）
-            ([0, 7, 14], "Double Octave Fifth"),      # 2オクターブ5度
-            ([0, 12, 19], "Octave Plus Fifth"),       # オクターブ＋5度
-            ([0, 2, 9], "Add9 Open"),                 # 開放的な9度
-            ([0, 7, 17], "Tenth"),                    # 10度（広い間隔）
+            ([0], "Single Note"),                     # Drone
+            ([0, 12], "Octave"),                      # Octave
+            ([0, 7], "Perfect Fifth"),                # Perfect fifth
+            ([0, 7, 12], "Open Fifth Octave"),        # Open fifth and octave
+            ([0, 5], "Perfect Fourth"),               # Perfect fourth
+            ([0, 5, 10], "Quartal Stack"),            # Quartal stack (floating feeling)
+            ([0, 5, 10, 15], "Extended Quartal"),     # Extended quartal stack
+            ([0, 2, 7], "Sus2"),                      # Suspended 2nd (open)
+            ([0, 7, 14], "Double Octave Fifth"),      # Two-octave fifth
+            ([0, 12, 19], "Octave Plus Fifth"),       # Octave plus fifth
+            ([0, 2, 9], "Add9 Open"),                 # Open 9th
+            ([0, 7, 17], "Tenth"),                    # 10th (wide interval)
         ]
         
         intervals, chord_name = random.choice(chord_types)
