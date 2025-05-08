@@ -56,6 +56,10 @@ class InstrumentConfig:
 class SlitDrum:
     """Slit drum class"""
     
+    # Actual slit drum frequency range limitations
+    MIN_FREQ = 100  # Low frequency range
+    MAX_FREQ = 500  # Up to mid frequency range
+    
     def __init__(self, sample_rate: int):
         self.sample_rate = sample_rate
         self.is_playing = False
@@ -65,6 +69,10 @@ class SlitDrum:
         
     def trigger(self, freq: float):
         """Trigger the drum"""
+        # Frequency range check
+        if freq < self.MIN_FREQ or freq > self.MAX_FREQ:
+            return  # Don't play if out of range
+            
         self.is_playing = True
         self.drum_phase = 0
         self.drum_start_time = 0
@@ -101,6 +109,10 @@ class SlitDrum:
 class Handpan:
     """Handpan class"""
     
+    # Actual handpan frequency range limitations
+    MIN_FREQ = 147  # D3
+    MAX_FREQ = 587  # D5
+    
     def __init__(self, sample_rate: int):
         self.sample_rate = sample_rate
         self.is_playing = False
@@ -110,6 +122,10 @@ class Handpan:
         
     def trigger(self, freq: float):
         """Trigger the handpan"""
+        # Frequency range check
+        if freq < self.MIN_FREQ or freq > self.MAX_FREQ:
+            return  # Don't play if out of range
+            
         self.is_playing = True
         self.pan_phase = 0
         self.pan_start_time = 0
@@ -122,32 +138,149 @@ class Handpan:
             
         t = (np.arange(frames) + self.pan_phase) / self.sample_rate
         
-        # Fundamental and modest harmonics
-        fundamental = np.sin(2 * np.pi * self.current_freq * t)
-        second = np.sin(2 * np.pi * self.current_freq * 2 * t) * 0.25
-        third = np.sin(2 * np.pi * self.current_freq * 3 * t) * 0.1
+        # Fundamental with characteristic pitch bend
+        pitch_bend = np.exp(-15 * t) * 0.005 + 1  # Slight pitch drop at impact
+        fundamental = np.sin(2 * np.pi * self.current_freq * t * pitch_bend)
         
-        # Add metallic resonance (with phase shift)
-        metallic = np.sin(2 * np.pi * self.current_freq * 1.5 * t + np.pi/4) * 0.15
+        # Harmonic series with slight inharmonicity
+        second = np.sin(2 * np.pi * self.current_freq * 2.02 * t) * 0.3
+        third = np.sin(2 * np.pi * self.current_freq * 2.99 * t) * 0.15
+        fourth = np.sin(2 * np.pi * self.current_freq * 3.98 * t) * 0.08
         
-        # Envelope
-        envelope = np.exp(-2 * t) * (1 + 0.3 * np.exp(-20 * t))
+        # Metallic resonance with modulation
+        resonance_freq = self.current_freq * 1.51
+        resonance_mod = 1 + 0.1 * np.exp(-5 * t)  # Modulation decreases over time
+        metallic = np.sin(2 * np.pi * resonance_freq * t * resonance_mod + np.pi/4) * 0.2
+        
+        # Add sympathetic resonance (characteristic of handpan)
+        sympathetic = np.sin(2 * np.pi * self.current_freq * 5.1 * t) * 0.05 * np.exp(-2 * t)
+        
+        # Complex envelope with characteristic handpan decay - faster fadeout
+        strike = np.exp(-30 * t)    # Sharp initial strike
+        bloom = 1 - np.exp(-5 * t)  # Sound "blooms" after strike
+        decay = np.exp(-2.5 * t)    # Faster main decay
+        sustain = np.exp(-0.8 * t)  # Shorter sustain
+        
+        envelope = strike * 0.3 + bloom * decay * 0.5 + sustain * 0.2
+        
+        # Add subtle beating effect
+        beating = 1 + 0.02 * np.sin(2 * np.pi * 2 * t) * np.exp(-3 * t)
         
         # Synthesis
-        pan_sound = (fundamental + second + third + metallic) * envelope * 0.3
+        pan_sound = (fundamental + second + third + fourth + metallic + sympathetic)
+        pan_sound *= envelope * beating * 0.28
         
         self.pan_phase += frames
         self.pan_start_time += frames / self.sample_rate
         
-        # Stop after 4 seconds
-        if self.pan_start_time > 4.0:
+        # Stop after 3.5 seconds or when very quiet
+        if self.pan_start_time > 3.5 or np.max(np.abs(pan_sound)) < 0.0005:
             self.is_playing = False
             
         return pan_sound
 
 
+class CrystalSingingBowl:
+    """Crystal singing bowl class"""
+    
+    # Actual crystal singing bowl frequency range limitations
+    MIN_FREQ = 200  # From mid range
+    MAX_FREQ = 2000  # To high range
+    
+    def __init__(self, sample_rate: int):
+        self.sample_rate = sample_rate
+        self.is_playing = False
+        self.crystal_phase = 0
+        self.crystal_start_time = 0
+        self.current_freq = 0
+        self.rubbing_phase = 0
+        
+    def trigger(self, freq: float):
+        """Activate the crystal singing bowl"""
+        # Frequency range check
+        if freq < self.MIN_FREQ or freq > self.MAX_FREQ:
+            return  # Don't play if out of range
+            
+        self.is_playing = True
+        self.crystal_phase = 0
+        self.crystal_start_time = 0
+        self.current_freq = freq
+        self.rubbing_phase = np.random.uniform(0, 2*np.pi)
+        
+    def generate(self, frames: int) -> np.ndarray:
+        """Generate crystal singing bowl sound"""
+        if not self.is_playing:
+            return np.zeros(frames)
+            
+        t = (np.arange(frames) + self.crystal_phase) / self.sample_rate
+        
+        # Centered frequency modulation - very subtle
+        fm_depth1 = 0.0001  # Even smaller
+        fm_depth2 = 0.00005
+        fm_freq1 = 0.2
+        fm_freq2 = 0.5
+        
+        # Centered modulation around base frequency
+        freq_mod1 = np.sin(2 * np.pi * fm_freq1 * t) * fm_depth1
+        freq_mod2 = np.sin(2 * np.pi * fm_freq2 * t + self.rubbing_phase) * fm_depth2
+        freq_final = self.current_freq * (1 + freq_mod1 + freq_mod2)
+        
+        # Pure fundamental
+        fundamental = np.sin(2 * np.pi * freq_final * t)
+        
+        # Very subtle harmonics
+        second = np.sin(2 * np.pi * self.current_freq * 2 * t + np.pi/4) * 0.02
+        third = np.sin(2 * np.pi * self.current_freq * 3 * t + np.pi/3) * 0.01
+        
+        # Ring modulation for crystalline quality
+        ring_freq = self.current_freq * 7.1
+        ring = np.sin(2 * np.pi * ring_freq * t) * 0.005
+        
+        # Centered amplitude modulation
+        am_depth1 = 0.005  # Reduced
+        am_depth2 = 0.002
+        am_freq1 = 3.7
+        am_freq2 = 5.3
+        amplitude_mod = 1 + am_depth1 * np.sin(2 * np.pi * am_freq1 * t)
+        amplitude_mod += am_depth2 * np.sin(2 * np.pi * am_freq2 * t + np.pi/2)
+        
+        # Time-based envelope
+        t_fade = t + self.crystal_phase / self.sample_rate
+        
+        rub_attack = 1 - np.exp(-2 * t_fade)
+        strike_attack = np.exp(-20 * t_fade)
+        decay = np.exp(-0.4 * t_fade)  # Faster decay
+        
+        envelope = rub_attack * 0.7 + strike_attack * 0.3
+        envelope *= decay
+        
+        # Ensure complete fade out
+        final_fade = np.exp(-0.2 * t_fade)
+        envelope *= final_fade
+        
+        # Very subtle noise
+        noise = np.random.randn(frames) * 0.0005 * np.exp(-5 * t_fade)
+        
+        # Synthesis
+        crystal_sound = (fundamental + second + third + ring) * envelope * amplitude_mod * 0.35
+        crystal_sound += noise
+        
+        self.crystal_phase += frames
+        self.crystal_start_time += frames / self.sample_rate
+        
+        # Stop when very quiet or after time limit
+        if self.crystal_start_time > 12.0 or np.max(np.abs(crystal_sound)) < 0.0005:
+            self.is_playing = False
+            
+        return crystal_sound
+
+
 class TibetanBell:
     """Tibetan bell (Tingsha) class"""
+    
+    # Actual Tibetan bell frequency range limitations
+    MIN_FREQ = 1000  # High range
+    MAX_FREQ = 8000  # To ultra-high range
     
     def __init__(self, sample_rate: int):
         self.sample_rate = sample_rate
@@ -158,11 +291,15 @@ class TibetanBell:
         
     def trigger(self, freq: float = None):
         """Ring the bell"""
+        if freq:
+            # Frequency range check
+            if freq < self.MIN_FREQ or freq > self.MAX_FREQ:
+                return  # Don't play if out of range
+            self.current_freq = freq
+            
         self.is_playing = True
         self.bell_phase = 0
         self.bell_start_time = 0
-        if freq:
-            self.current_freq = freq
         
     def generate(self, frames: int) -> np.ndarray:
         """Generate bell sound"""
@@ -171,27 +308,44 @@ class TibetanBell:
             
         t = (np.arange(frames) + self.bell_phase) / self.sample_rate
         
-        # Two frequencies (dissonant for bell-like quality)
+        # Multiple frequencies with inharmonic ratios
         f1 = self.current_freq
-        f2 = self.current_freq * 1.05  # Slight dissonance
+        f2 = self.current_freq * 1.02  # Very slight dissonance
+        f3 = self.current_freq * 2.76  # Inharmonic partial
+        f4 = self.current_freq * 5.43  # High inharmonic partial
         
         # Bell sound components
         wave1 = np.sin(2 * np.pi * f1 * t)
         wave2 = np.sin(2 * np.pi * f2 * t) * 0.8
+        wave3 = np.sin(2 * np.pi * f3 * t) * 0.3
+        wave4 = np.sin(2 * np.pi * f4 * t) * 0.1
         
-        # Envelope (representing initial strike)
-        attack = np.exp(-50 * t)
-        decay = np.exp(-4 * t)
-        envelope = attack * 0.3 + decay * 0.7
+        # Time-based envelope
+        t_fade = t + self.bell_phase / self.sample_rate
+        
+        attack = np.exp(-100 * t_fade)
+        decay1 = np.exp(-5 * t_fade)
+        decay2 = np.exp(-1.5 * t_fade)
+        
+        envelope = attack * 0.5 + decay1 * 0.3 + decay2 * 0.2
+        
+        # Ensure complete fade out
+        final_fade = np.exp(-0.8 * t_fade)
+        envelope *= final_fade
+        
+        # Centered amplitude modulation
+        am_depth = 0.015 * np.exp(-2 * t_fade)  # Decreasing shimmer
+        am_freq = 8
+        amplitude_mod = 1 + am_depth * np.sin(2 * np.pi * am_freq * t)
         
         # Synthesis
-        bell_sound = (wave1 + wave2) * envelope * 0.25
+        bell_sound = (wave1 + wave2 + wave3 + wave4) * envelope * amplitude_mod * 0.2
         
         self.bell_phase += frames
         self.bell_start_time += frames / self.sample_rate
         
-        # Stop after 3 seconds
-        if self.bell_start_time > 3.0:
+        # Stop when very quiet or after time limit
+        if self.bell_start_time > 4.0 or np.max(np.abs(bell_sound)) < 0.001:
             self.is_playing = False
             
         return bell_sound
@@ -201,7 +355,8 @@ class MindfulnessBGM:
     """Dynamic mindfulness BGM generator class"""
     
     def __init__(self, bell_config: InstrumentConfig, drum_config: InstrumentConfig, 
-                 handpan_config: InstrumentConfig, ambient_ratio: float):
+                 handpan_config: InstrumentConfig, crystal_bowl_config: InstrumentConfig,
+                 ambient_ratio: float):
         self.sample_rate = SAMPLE_RATE
         self.phase = 0
         self.lock = threading.Lock()
@@ -228,15 +383,21 @@ class MindfulnessBGM:
         # Ambient sound settings
         self.ambient_ratio = ambient_ratio
         
+        # Ocean wave parameters only
+        self.ocean_phase = np.random.uniform(0, 2*np.pi)
+        self.ocean_variation = np.random.uniform(0.8, 1.2)
+        
         # Percussion instruments
         self.tibetan_bell = TibetanBell(self.sample_rate)
         self.slit_drum = SlitDrum(self.sample_rate)
         self.handpan = Handpan(self.sample_rate)
+        self.crystal_bowl = CrystalSingingBowl(self.sample_rate)
         
         # Percussion configurations
         self.bell_config = bell_config
         self.drum_config = drum_config
         self.handpan_config = handpan_config
+        self.crystal_bowl_config = crystal_bowl_config
         
         # Effect buffer (reverb)
         self.reverb_buffer = np.zeros(int(self.sample_rate * 0.1))  # 0.1 second buffer
@@ -252,6 +413,8 @@ class MindfulnessBGM:
             threading.Thread(target=self._drum_scheduler, daemon=True).start()
         if self.handpan_config.enabled:
             threading.Thread(target=self._handpan_scheduler, daemon=True).start()
+        if self.crystal_bowl_config.enabled:
+            threading.Thread(target=self._crystal_bowl_scheduler, daemon=True).start()
 
     def _bell_scheduler(self):
         """Bell scheduler"""
@@ -319,16 +482,34 @@ class MindfulnessBGM:
                     # Select note from current chord
                     if self.chord:
                         base_freq = random.choice(self.chord)
-                        # Transpose to middle range for handpan
-                        freq = base_freq * random.choice([1, 2, 3])
+                        # Handpan range - adjusted to mid range
+                        freq = base_freq * random.choice([0.5, 1, 1.5])
                     else:
                         # If no chord, use traditional method
-                        freq = random.choice(BASE_FREQS) * random.choice([1, 1.5, 2])
+                        freq = random.choice(BASE_FREQS) * random.choice([0.5, 1, 1.5])
                     self.handpan.trigger(freq)
                 
                 # Interval between consecutive strikes (quarter note to dotted half note)
                 if i < num_strikes - 1:
                     time.sleep(random.uniform(1.0, 3.5))
+
+    def _crystal_bowl_scheduler(self):
+        """Crystal singing bowl scheduler"""
+        time.sleep(8)
+        while True:
+            wait_time = random.uniform(self.crystal_bowl_config.min_interval, 
+                                     self.crystal_bowl_config.max_interval)
+            time.sleep(wait_time)
+            
+            with self.lock:
+                # Select note from current chord
+                if self.chord:
+                    base_freq = random.choice(self.chord)
+                    # Crystal bowls in middle-high range
+                    freq = base_freq * random.choice([1, 1.5, 2, 3])
+                else:
+                    freq = random.choice(BASE_FREQS) * random.choice([1, 2, 3])
+                self.crystal_bowl.trigger(freq)
 
     def _event_scheduler(self):
         """Schedule random events"""
@@ -459,30 +640,70 @@ class MindfulnessBGM:
         
         return output
 
+    def _generate_ocean_waves(self, t: np.ndarray, frames: int) -> np.ndarray:
+        """Generate cleaner ocean wave sounds with less noise"""
+        t_ocean = t + self.ocean_phase
+        var = self.ocean_variation
+        
+        # Main wave rhythm (emphasize sine wave components) - increase volume
+        wave1 = np.sin(2 * np.pi * 0.08 * var * t_ocean) * 0.8
+        wave2 = np.sin(2 * np.pi * 0.06 * var * t_ocean + np.pi/3) * 0.7
+        wave3 = np.sin(2 * np.pi * 0.04 * var * t_ocean + np.pi/6) * 0.6
+        wave4 = np.sin(2 * np.pi * 0.03 * var * t_ocean + np.pi/4) * 0.5
+        
+        # Wave swells (smoother)
+        swell = 0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * var * t_ocean)
+        main_waves = (wave1 + wave2 + wave3 + wave4) * swell
+        
+        # Breaking wave sounds (greatly reduced noise)
+        breaking_trigger = np.sin(2 * np.pi * 0.05 * var * t_ocean)
+        breaking_envelope = np.maximum(0, breaking_trigger) ** 2  # Make more prominent
+        
+        # Minimal noise component
+        breaking_noise = np.random.randn(frames) * 0.05  # Slightly increased
+        # Light low-pass filter
+        for i in range(1, frames):
+            breaking_noise[i] = 0.7 * breaking_noise[i-1] + 0.3 * breaking_noise[i]
+        
+        breaking_waves = breaking_noise * breaking_envelope * 0.3
+        
+        # Deep wave sounds (sine wave based)
+        deep_waves = np.sin(2 * np.pi * 0.015 * t_ocean) * 0.5
+        deep_waves += np.sin(2 * np.pi * 0.01 * t_ocean + np.pi/2) * 0.4
+        deep_waves += np.sin(2 * np.pi * 0.007 * t_ocean + np.pi/3) * 0.3
+        
+        # Wave receding sounds (minimal noise)
+        wash_envelope = 0.5 + 0.5 * np.sin(2 * np.pi * 0.03 * t_ocean + np.pi)
+        wash_sound = np.sin(2 * np.pi * 0.025 * t_ocean) * wash_envelope * 0.3
+        
+        # Clean synthesis
+        ocean_sound = main_waves + breaking_waves + deep_waves + wash_sound
+        
+        # Light smoothing
+        for i in range(1, frames):
+            ocean_sound[i] = 0.5 * ocean_sound[i-1] + 0.5 * ocean_sound[i]
+            
+        return ocean_sound
+
     def generate_nature_sounds(self, frames: int) -> np.ndarray:
-        """Generate nature sounds (enhanced volume)"""
+        """Generate cleaner natural sounds with minimal noise - Ocean waves only"""
         if self.ambient_ratio == 0:
             return np.zeros(frames)
         
         t = (np.arange(frames) + self.noise_state) / self.sample_rate
         
-        # Ocean waves (enhanced volume)
-        ocean1 = np.sin(2 * np.pi * 0.05 * t) * 0.08
-        ocean2 = np.sin(2 * np.pi * 0.08 * t + np.pi/3) * 0.06
-        ocean3 = np.sin(2 * np.pi * 0.03 * t + np.pi/6) * 0.04
-        ocean4 = np.sin(2 * np.pi * 0.02 * t + np.pi/2) * 0.03
+        # Generate only clean ocean sounds
+        ocean = self._generate_ocean_waves(t, frames)
         
-        # Wind sound (enhanced and more dynamic)
-        wind = np.random.randn(frames) * 0.02
-        # Multi-stage filtering for more natural wind
+        # Return wave sounds as is (don't generate other natural sounds)
+        nature_mix = ocean
+        
+        # Final smoothing (noise removal) - lightly adjusted
         for i in range(1, frames):
-            wind[i] = 0.85 * wind[i-1] + 0.15 * wind[i]
-        
-        # Add low-frequency rumble for depth
-        rumble = np.sin(2 * np.pi * 0.01 * t) * 0.02
+            nature_mix[i] = 0.7 * nature_mix[i-1] + 0.3 * nature_mix[i]
         
         self.noise_state += frames
-        return ocean1 + ocean2 + ocean3 + ocean4 + wind + rumble
+        return nature_mix * 1.5  # Adjust base volume
 
     def callback(self, outdata, frames, time_info, status):
         """Audio callback"""
@@ -518,6 +739,7 @@ class MindfulnessBGM:
         bell_sound = self.tibetan_bell.generate(frames)
         drum_sound = self.slit_drum.generate(frames)
         handpan_sound = self.handpan.generate(frames)
+        crystal_bowl_sound = self.crystal_bowl.generate(frames)
         
         # Generate chord with current sound type
         current_wave = np.zeros(frames)
@@ -560,15 +782,18 @@ class MindfulnessBGM:
         # Apply reverb
         current_wave = self.apply_reverb(current_wave)
         
-        # Mix (enhanced ambient presence)
+        # Mix (dynamic ambient presence)
         if self.ambient_ratio > 0:
-            # Slightly reduce main signal to prevent clipping
-            sig = current_wave * (1 - self.ambient_ratio) * 0.9 + nature_sounds * self.ambient_ratio * 1.2
+            # Dynamic scaling based on ambient_ratio
+            instrument_scale = 1.0 - (self.ambient_ratio * 0.7)  # Gentler attenuation
+            ambient_scale = 1.0 + (self.ambient_ratio * 1.0)     # Gentler amplification
+            
+            sig = current_wave * instrument_scale + nature_sounds * self.ambient_ratio * ambient_scale
         else:
             sig = current_wave
         
         # Add percussion sounds
-        sig += bell_sound + drum_sound + handpan_sound
+        sig += bell_sound + drum_sound + handpan_sound + crystal_bowl_sound
         
         # Soft limiting
         sig *= VOLUME
@@ -604,7 +829,7 @@ def parse_ambient_value(value: str) -> float:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="Mindfulness BGM Generator - Balanced Version")
+    parser = argparse.ArgumentParser(description="Mindfulness BGM Generator - Modified Version")
     
     parser.add_argument("--bell", type=str, default="15-45",
                       help="Tibetan bell interval in seconds")
@@ -612,10 +837,12 @@ def main():
                       help="Slit drum interval in seconds")
     parser.add_argument("--handpan", type=str, default="12-30",
                       help="Handpan interval in seconds")
+    parser.add_argument("--crystal-bowl", type=str, default="25-60",
+                      help="Crystal singing bowl interval in seconds")
     parser.add_argument("--ambient", type=str, default=str(DEFAULT_AMBIENT_RATIO),
                       help=f"Ambient sound ratio (0-1, default: {DEFAULT_AMBIENT_RATIO})")
     parser.add_argument("--instrument", type=str, default=None,
-                      help="Specify instrument: bell, drum, or handpan")
+                      help="Specify instrument: bell, drum, handpan, crystal-bowl")
     
     args = parser.parse_args()
     
@@ -623,30 +850,41 @@ def main():
     bell_min, bell_max = parse_instrument_interval(args.bell)
     drum_min, drum_max = parse_instrument_interval(args.drum)
     handpan_min, handpan_max = parse_instrument_interval(args.handpan)
+    crystal_bowl_min, crystal_bowl_max = parse_instrument_interval(args.crystal_bowl)
+    
+    # Available instruments
+    instruments = ['bell', 'drum', 'handpan', 'crystal-bowl']
     
     # Choose single instrument
     if args.instrument:
         # Use specified instrument
         selected_instrument = args.instrument.lower()
+        if selected_instrument not in instruments:
+            print(f"Invalid instrument: {selected_instrument}")
+            print(f"Available instruments: {', '.join(instruments)}")
+            return
     else:
         # Randomly select one instrument
-        selected_instrument = random.choice(['bell', 'drum', 'handpan'])
+        selected_instrument = random.choice(instruments)
     
     # Enable only the selected instrument
     bell_enabled = (selected_instrument == 'bell' and bell_min > 0)
     drum_enabled = (selected_instrument == 'drum' and drum_min > 0)
     handpan_enabled = (selected_instrument == 'handpan' and handpan_min > 0)
+    crystal_bowl_enabled = (selected_instrument == 'crystal-bowl' and crystal_bowl_min > 0)
     
     bell_config = InstrumentConfig(bell_min, bell_max, bell_enabled)
     drum_config = InstrumentConfig(drum_min, drum_max, drum_enabled)
     handpan_config = InstrumentConfig(handpan_min, handpan_max, handpan_enabled)
+    crystal_bowl_config = InstrumentConfig(crystal_bowl_min, crystal_bowl_max, crystal_bowl_enabled)
     
     # Parse ambient sound settings
     ambient_ratio = parse_ambient_value(args.ambient)
     
     # Display settings
-    print("Starting mindfulness BGM (Balanced Version)...")
+    print("Starting mindfulness BGM (Modified Version)...")
     print("\nSettings:")
+    print("- Four meditation instruments")
     print("- Enhanced sound depth without distortion")
     print("- Simple reverb effect")
     print("- Balanced harmonics")
@@ -654,20 +892,18 @@ def main():
     
     print("\nInstrument settings:")
     
-    if bell_config.enabled:
-        print(f"- Tibetan bell: {bell_config.min_interval:.1f}-{bell_config.max_interval:.1f} seconds (SELECTED)")
-    else:
-        print("- Tibetan bell: DISABLED")
+    instrument_configs = [
+        ("Tibetan bell", bell_config),
+        ("Slit drum", drum_config),
+        ("Handpan", handpan_config),
+        ("Crystal singing bowl", crystal_bowl_config)
+    ]
     
-    if drum_config.enabled:
-        print(f"- Slit drum: {drum_config.min_interval:.1f}-{drum_config.max_interval:.1f} seconds (SELECTED)")
-    else:
-        print("- Slit drum: DISABLED")
-    
-    if handpan_config.enabled:
-        print(f"- Handpan: {handpan_config.min_interval:.1f}-{handpan_config.max_interval:.1f} seconds (SELECTED)")
-    else:
-        print("- Handpan: DISABLED")
+    for name, config in instrument_configs:
+        if config.enabled:
+            print(f"- {name}: {config.min_interval:.1f}-{config.max_interval:.1f} seconds (SELECTED)")
+        else:
+            print(f"- {name}: DISABLED")
     
     if ambient_ratio > 0:
         print(f"- Ambient sounds: {ambient_ratio:.1%} mix ratio")
@@ -680,7 +916,8 @@ def main():
     sd.default.blocksize = BUFFER_FRAMES
     sd.default.channels = 2
     
-    generator = MindfulnessBGM(bell_config, drum_config, handpan_config, ambient_ratio)
+    generator = MindfulnessBGM(bell_config, drum_config, handpan_config, 
+                              crystal_bowl_config, ambient_ratio)
     
     with sd.OutputStream(callback=generator.callback):
         try:
