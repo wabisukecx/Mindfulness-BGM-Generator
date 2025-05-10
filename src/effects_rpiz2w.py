@@ -4,7 +4,7 @@ Simplified effects for lower computational requirements
 """
 
 import numpy as np
-from src.config_rpiz2w import REVERB_TIME, REVERB_MIX, BREATH_CYCLE, LFO_FREQ
+from src.config_rpiz2w import REVERB_TIME, REVERB_MIX
 
 
 class AudioEffectsRPiZ2W:

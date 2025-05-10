@@ -172,7 +172,6 @@ class MindfulnessBGMStreamlit(MindfulnessBGM):
     def _crystal_bowl_scheduler_with_stop(self):
         """Crystal singing bowl scheduler with stop flag support"""
         import random
-        import time
         from src.config import BASE_FREQS
         
         if self.stop_flag.wait(8):
