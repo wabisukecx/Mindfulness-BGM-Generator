@@ -9,6 +9,7 @@ This application provides a real-time audio generation system that creates conti
 ## Features
 
 ### Core Features
+
 - **Dynamic Sound Generation**: Continuously evolving harmonies and textures
 - **Multiple Sound Types**:
   - Harmonic-rich tones
@@ -29,43 +30,66 @@ This application provides a real-time audio generation system that creates conti
 - **Simple Reverb Effect**: Adds spatial depth to the soundscape
 
 ### Musical Features
-- **Mindfulness-oriented Harmonies**: Uses perfect fifths, fourths, and open intervals
-- **Single Instrument per Session**: Each session focuses on one meditation instrument for deeper meditation
+
+- **Mindfulness-oriented Harmonies**: Uses perfect fifths, fourths, and open
+
+intervals
+
+- **Single Instrument per Session**: Each session focuses on one meditation
+
+instrument for deeper meditation
+
 - **Harmonic Percussion**: Instruments play notes that harmonize with the current background chord
 - **Natural Rhythm Patterns**: Instruments play 1-3 notes with musical spacing
+- **Dynamic Sound Types**: Multiple synthesis methods for tonal variety
+- **Breathing Synchronization**: Subtle volume modulation aligned with breath cycles
 
 ## Project Structure
 
-```
+```bash
 .
 ├── README.md                 # This file
 ├── requirements.txt          # Python dependencies
 ├── packages.txt             # System-level dependencies
 ├── main.py                  # Command-line version
 ├── app.py                   # Streamlit web interface
-└── main_rpiz2w.py          # Raspberry Pi Zero 2 W optimized version
+├── main_rpiz2w.py          # Raspberry Pi Zero 2 W optimized version
+└── src/                     # Source code modules
+    ├── __init__.py
+    ├── config.py            # High-quality audio settings
+    ├── config_rpiz2w.py     # RPi Zero 2 W optimized settings
+    ├── generator.py         # Main BGM generator class
+    ├── generator_rpiz2w.py  # RPi optimized generator
+    ├── generator_streamlit.py  # Streamlit-compatible generator
+    ├── synthesizer.py       # Sound synthesis functions
+    ├── synthesizer_rpiz2w.py  # RPi optimized synthesizer
+    ├── sound_types.py       # Sound type definitions
+    ├── instruments_base.py  # Base instrument classes
+    ├── instruments.py       # Meditation instrument implementations
+    ├── instruments_rpiz2w.py  # RPi optimized instruments
+    ├── ambient_sounds.py    # Ambient sound generation
+    ├── ambient_sounds_rpiz2w.py  # RPi optimized ambient
+    ├── effects.py           # Audio effects processing
+    ├── effects_rpiz2w.py    # RPi optimized effects
+    └── utils.py             # Utility functions
 ```
 
 ## Requirements
 
 ### System Requirements
+
 - Python 3.7+
 - Audio output device
 - 4GB RAM (recommended)
 - Dual-core CPU (minimum)
 
 ### Python Dependencies
-```
+
+```bash
 numpy          # Numerical computing
 sounddevice    # Audio I/O
 streamlit      # Web application framework (for app.py)
 pyaudio        # Audio I/O (optional, for some systems)
-```
-
-### System Dependencies (Linux/Debian-based)
-```
-portaudio19-dev    # PortAudio library
-python3-all-dev    # Python development headers
 ```
 
 ## Installation
@@ -80,18 +104,22 @@ cd Mindfulness-BGM-Generator
 ### 2. Install System Dependencies
 
 #### Linux (Ubuntu/Debian)
+
 ```bash
 sudo apt-get update
 sudo apt-get install portaudio19-dev python3-all-dev
 ```
 
 #### macOS
+
 ```bash
 brew install portaudio
 ```
 
 #### Windows
+
 For Windows users, PyAudio installation may require additional steps:
+
 ```bash
 pip install pipwin
 pipwin install pyaudio
@@ -108,6 +136,7 @@ pip install -r requirements.txt
 ### Command-line Version (main.py)
 
 #### Basic Usage
+
 ```bash
 python main.py
 ```
@@ -126,16 +155,19 @@ python main.py
 #### Usage Examples
 
 Use only Tibetan bells:
+
 ```bash
 python main.py --instrument bell
 ```
 
 Use only handpan with custom interval:
+
 ```bash
 python main.py --instrument handpan --handpan 10-20
 ```
 
 Ambient sounds only (no percussion):
+
 ```bash
 python main.py --bell 0 --drum 0 --handpan 0 --crystal-bowl 0
 ```
@@ -143,11 +175,13 @@ python main.py --bell 0 --drum 0 --handpan 0 --crystal-bowl 0
 ### Web Interface (app.py)
 
 Run the Streamlit application:
+
 ```bash
 streamlit run app.py
 ```
 
 The web app provides:
+
 - Start/Stop controls
 - Instrument selection dropdown
 - Ambient sound mix slider
@@ -156,11 +190,13 @@ The web app provides:
 ### Raspberry Pi Zero 2 W Version (main_rpiz2w.py)
 
 Optimized for lower-power devices:
+
 ```bash
 python main_rpiz2w.py
 ```
 
 This version features:
+
 - Lower memory footprint
 - Optimized audio processing
 - Same command-line options as main.py
@@ -168,12 +204,14 @@ This version features:
 ## Technical Details
 
 ### Audio Processing
+
 - **Sample Rate**: 16kHz (optimized) / 44.1kHz (standard)
 - **Buffer Size**: 1024 frames
 - **Channels**: Stereo
 - **Output Format**: Float32
 
 ### Musical Elements
+
 - **Scale**: A Pentatonic (A, C, E, A, C)
 - **Chord Types** (Mindfulness-oriented):
   - Single notes (drone)
@@ -185,6 +223,7 @@ This version features:
   - Open voicings
 
 ### Sound Generation
+
 - Pure sine wave synthesis
 - Harmonic addition for timbral richness
 - Exponential envelope generators
@@ -193,9 +232,9 @@ This version features:
 
 ## Architecture
 
-The application uses a multi-threaded architecture:
+The application uses a multi-threaded architecture with modular components:
 
-```
+```bash
 Main Thread (Audio Callback)
 ├── Sound Generation
 ├── Envelope Processing
@@ -213,17 +252,64 @@ Instrument Scheduler Threads
 └── Crystal Bowl Scheduler
 ```
 
+### Module Organization
+
+```bash
+Configuration Layer
+├── config.py / config_rpiz2w.py
+    └── Audio settings, frequencies, effects parameters
+
+Sound Generation Layer
+├── synthesizer.py / synthesizer_rpiz2w.py
+│   └── Tone generation, chord creation
+├── instruments_base.py
+│   └── Base instrument interface
+├── instruments.py / instruments_rpiz2w.py
+│   └── Specific instrument implementations
+└── ambient_sounds.py / ambient_sounds_rpiz2w.py
+    └── Ocean wave synthesis
+
+Effects Layer
+└── effects.py / effects_rpiz2w.py
+    └── Reverb, stereo enhancement, limiting
+
+Orchestration Layer
+├── generator.py / generator_rpiz2w.py
+│   └── Main BGM orchestration
+└── generator_streamlit.py
+    └── Web interface integration
+
+Utilities Layer
+└── utils.py
+    └── Command-line parsing, helpers
+```
+
+### Code Design Principles
+
+1. **Separation of Concerns**: Each module has a specific responsibility
+2. **Platform Optimization**: Separate implementations for standard and RPi Zero 2 W
+3. **Interface Abstraction**: Base classes define common interfaces
+4. **Thread Safety**: Lock-based synchronization for audio generation
+5. **Real-time Processing**: Optimized for low-latency audio callbacks
+
 ### Core Classes
 
 | Class | Description |
 |-------|-------------|
-| `MindfulnessBGM` | Main generator class |
-| `TibetanBell` | Tibetan bell sound synthesis |
+| `MindfulnessBGM` | Main generator class for high-quality audio |
+| `MindfulnessBGMRPiZ2W` | Optimized generator for Raspberry Pi Zero 2 W |
+| `MindfulnessBGMStreamlit` | Streamlit-compatible generator with thread management |
+| `Synthesizer` | Sound synthesis and chord generation utilities |
+| `SynthesizerRPiZ2W` | Optimized synthesizer for lower CPU usage |
+| `BaseInstrument` | Abstract base class for all instruments |
+| `TibetanBell` | Tibetan bell (Tingsha) sound synthesis |
 | `SlitDrum` | Slit drum sound synthesis |
 | `Handpan` | Handpan sound synthesis |
-| `CrystalSingingBowl` | Crystal bowl sound synthesis |
+| `CrystalSingingBowl` | Crystal singing bowl sound synthesis |
 | `SoundType` | Enum for different sound types |
-| `InstrumentConfig` | Configuration for each instrument |
+| `InstrumentConfig` | Configuration for instrument timing |
+| `AmbientSoundGenerator` | Ocean wave generation |
+| `AudioEffects` | Reverb, stereo enhancement, limiting |
 
 ## Troubleshooting
 
@@ -252,17 +338,72 @@ Instrument Scheduler Threads
 ### Platform-Specific Notes
 
 #### Raspberry Pi
+
 - Use `main_rpiz2w.py` for better performance
 - Consider using a USB audio adapter for better quality
 - Monitor CPU temperature during extended use
 
-#### Windows
+#### Windows (Troubleshooting)
+
 - May require Microsoft Visual C++ Redistributable
 - Use Windows audio troubleshooter for device issues
 
-#### macOS
+#### macOS (Audio Troubleshooting)
+
 - Grant microphone permissions if prompted
 - Use `brew doctor` to check Homebrew installation
+
+## Development
+
+### Module Details
+
+#### Core Generator (`src/generator.py`)
+
+- Main orchestration of all sound components
+- Thread management for schedulers
+- Real-time audio callback processing
+- Transition handling (volume, chord, sound type)
+
+#### Synthesizer (`src/synthesizer.py`)
+
+- Tone generation with multiple sound types
+- Chord creation optimized for meditation
+- Harmonic and inharmonic synthesis
+
+#### Instruments (`src/instruments.py`)
+
+- Individual instrument sound synthesis
+- Envelope generation
+- Frequency validation
+- State management
+
+#### Effects (`src/effects.py`)
+
+- Reverb implementation
+- Stereo enhancement
+- Soft limiting/compression
+- Breathing rhythm modulation
+
+#### Configuration (`src/config.py`)
+
+- Audio parameters (sample rate, buffer size)
+- Musical scales and frequencies
+- Effect parameters
+- Timing constants
+
+### Performance Optimizations
+
+The codebase includes two versions:
+
+1. **Standard Version**: High-quality audio (48kHz) with rich harmonics
+2. **RPi Zero 2 W Version**: Optimized for lower CPU usage (16kHz)
+
+Key optimizations:
+
+- Reduced sample rate for RPi
+- Simplified effect processing
+- Fewer harmonics in synthesis
+- Smaller buffer sizes
 
 ## Contributing
 
@@ -276,10 +417,12 @@ Contributions are welcome! Please follow these guidelines:
 6. Submit a pull request with clear description
 
 ### Code Style
+
 - Follow PEP 8 guidelines
 - Use type hints where appropriate
-- Comment complex algorithms
-- Keep functions focused and small
+- Document complex algorithms
+- Keep functions focused and modular
+- Maintain separation between platform versions
 
 ## License
 
