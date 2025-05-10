@@ -3,7 +3,7 @@ Meditation instrument implementations for Mindfulness BGM Generator
 """
 
 import numpy as np
-from instruments_base import BaseInstrument, InstrumentConfig
+from src.instruments_base import BaseInstrument, InstrumentConfig
 
 # Re-export InstrumentConfig for convenience
 __all__ = ['SlitDrum', 'Handpan', 'CrystalSingingBowl', 'TibetanBell', 'InstrumentConfig']

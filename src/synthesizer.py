@@ -6,8 +6,8 @@ import numpy as np
 from typing import List
 import random
 
-from config import BASE_FREQS
-from sound_types import SoundType
+from src.config import BASE_FREQS
+from src.sound_types import SoundType
 
 
 class Synthesizer:

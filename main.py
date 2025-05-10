@@ -9,10 +9,10 @@ import time
 import random
 import argparse
 
-from config import SAMPLE_RATE, BUFFER_FRAMES, DEFAULT_AMBIENT_RATIO
-from instruments_base import InstrumentConfig
-from generator import MindfulnessBGM
-from utils import parse_instrument_interval, parse_ambient_value
+from src.config import SAMPLE_RATE, BUFFER_FRAMES, DEFAULT_AMBIENT_RATIO
+from src.instruments_base import InstrumentConfig
+from src.generator import MindfulnessBGM
+from src.utils import parse_instrument_interval, parse_ambient_value
 
 
 def parse_arguments():

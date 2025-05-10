@@ -3,7 +3,7 @@ Audio effects for Mindfulness BGM Generator
 """
 
 import numpy as np
-from config import REVERB_TIME, REVERB_MIX
+from src.config import REVERB_TIME, REVERB_MIX
 
 
 class AudioEffects:

@@ -8,13 +8,13 @@ import time
 import random
 from typing import List
 
-from config import *
-from sound_types import SoundType
-from instruments_base import InstrumentConfig
-from instruments import TibetanBell, SlitDrum, Handpan, CrystalSingingBowl
-from synthesizer import Synthesizer
-from ambient_sounds import AmbientSoundGenerator
-from effects import AudioEffects
+from src.config import *
+from src.sound_types import SoundType
+from src.instruments_base import InstrumentConfig
+from src.instruments import TibetanBell, SlitDrum, Handpan, CrystalSingingBowl
+from src.synthesizer import Synthesizer
+from src.ambient_sounds import AmbientSoundGenerator
+from src.effects import AudioEffects
 
 
 class MindfulnessBGM:
