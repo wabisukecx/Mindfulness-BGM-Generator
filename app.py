@@ -299,7 +299,7 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style="text-align: center; color: #666;">
-            Mindfulness BGM Generator v1.0 | © 2024 Meditation Tech
+            Mindfulness BGM Generator v1.4.0
         </div>
     """, unsafe_allow_html=True)
 

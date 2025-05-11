@@ -3,7 +3,7 @@ Audio effects for Mindfulness BGM Generator
 """
 
 import numpy as np
-from src.config import REVERB_TIME, REVERB_MIX
+from src.config import REVERB_TIME, REVERB_MIX, LIMITER_KNEE
 
 
 class AudioEffects:
@@ -35,9 +35,30 @@ class AudioEffects:
         return output
     
     @staticmethod
-    def apply_soft_limiting(signal: np.ndarray, threshold: float = 0.7, ceiling: float = 0.95) -> np.ndarray:
-        """Apply soft limiting to prevent clipping"""
-        return np.tanh(signal * threshold) * ceiling
+    def apply_soft_limiting(signal: np.ndarray, threshold: float = 0.5, 
+                        ceiling: float = 0.85, knee: float = 0.1) -> np.ndarray:
+        """Improved soft limiter"""
+        # Calculate RMS for dynamic range awareness
+        rms = np.sqrt(np.mean(signal ** 2))
+        
+        # Detect signal peak
+        peak = np.max(np.abs(signal))
+        
+        # Adjust gain if peak exceeds threshold
+        if peak > threshold:
+            # Calculate soft knee region
+            if peak < threshold + knee:
+                # Gentle compression in soft knee region
+                ratio = 1 + (peak - threshold) / knee * 0.5
+                gain = threshold / (threshold + (peak - threshold) / ratio)
+            else:
+                # Hard limiting
+                gain = threshold / peak
+            
+            signal = signal * gain
+        
+        # Final tanh compression (softer)
+        return ceiling * np.tanh(signal / ceiling * 0.9)
     
     @staticmethod
     def apply_stereo_enhancement(signal: np.ndarray, 

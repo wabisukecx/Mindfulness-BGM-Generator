@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mindfulness BGM Generator - Main Entry Point
-High Quality Version with Modular Structure
+High Quality Version with Modular Structure and Balanced Modulation
 """
 
 import sounddevice as sd
@@ -31,6 +31,9 @@ def parse_arguments():
                       help=f"Ambient sound ratio (0-1, default: {DEFAULT_AMBIENT_RATIO})")
     parser.add_argument("--instrument", type=str, default=None,
                       help="Specify instrument: bell, drum, handpan, crystal-bowl")
+    parser.add_argument("--modulation-mode", type=str, default="balanced",
+                      choices=["stable", "balanced", "dynamic"],
+                      help="Modulation behavior: stable (calm), balanced, or dynamic (active)")
     
     return parser.parse_args()
 
@@ -72,7 +75,7 @@ def setup_instruments(args):
     return configs, selected_instrument
 
 
-def display_settings(instrument_configs, ambient_ratio):
+def display_settings(instrument_configs, ambient_ratio, modulation_mode):
     """Display current settings"""
     print("Starting mindfulness BGM (High Quality Version)...")
     print("\nSettings:")
@@ -81,6 +84,15 @@ def display_settings(instrument_configs, ambient_ratio):
     print("- CD quality audio (48kHz)")
     print("- Improved stereo separation")
     print("- Smoother transitions (3s)")
+    print(f"- Modulation mode: {modulation_mode}")
+    
+    # Modulation mode descriptions
+    mode_descriptions = {
+        "stable": "Minimal modulation for deep meditation",
+        "balanced": "Balanced modulation for regular practice",
+        "dynamic": "Active modulation for energetic sessions"
+    }
+    print(f"  {mode_descriptions[modulation_mode]}")
     
     print("\nInstrument settings:")
     
@@ -119,7 +131,7 @@ def main():
         ambient_ratio = parse_ambient_value(args.ambient)
         
         # Display settings
-        display_settings(instrument_configs, ambient_ratio)
+        display_settings(instrument_configs, ambient_ratio, args.modulation_mode)
         
         # Configure audio device
         sd.default.samplerate = SAMPLE_RATE
@@ -132,7 +144,8 @@ def main():
             instrument_configs['drum'],
             instrument_configs['handpan'],
             instrument_configs['crystal_bowl'],
-            ambient_ratio
+            ambient_ratio,
+            modulation_mode=args.modulation_mode
         )
         
         # Start audio stream

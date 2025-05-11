@@ -1,5 +1,6 @@
 """
 Sound synthesis functions for Mindfulness BGM Generator
+Enhanced with natural harmonic progressions
 """
 
 import numpy as np
@@ -13,28 +14,112 @@ from src.sound_types import SoundType
 class Synthesizer:
     """Sound synthesis and chord generation utilities"""
     
-    @staticmethod
-    def create_chord() -> List[float]:
-        """Generate chords suitable for mindfulness"""
-        root = random.choice(BASE_FREQS)
+    # Natural harmonic progressions (5度圏に基づく)
+    NATURAL_PROGRESSIONS = {
+        220.00: [220.00, 329.63, 146.83, 293.66],  # A -> A, E, D, D (octave below)
+        261.63: [261.63, 392.00, 174.61, 196.00],  # C -> C, G, F, G (octave below)
+        329.63: [329.63, 246.94, 220.00, 164.81],  # E -> E, B, A, E (octave below)
+        440.00: [440.00, 659.25, 293.66, 587.33],  # A -> A, E, D, D (octave above)
+        523.25: [523.25, 783.99, 349.23, 392.00],  # C -> C, G, F, G (octave above)
+    }
+    
+    def select_next_root(self, current_root: float, mode: str) -> float:
+        """Select next root based on mode and current root"""
+        if current_root is None:
+            return random.choice(BASE_FREQS)
+        
+        # Find closest base frequency
+        closest_base = min(BASE_FREQS, key=lambda x: abs(x - current_root))
+        
+        if mode == "stable":
+            # 80% stay on same root
+            if random.random() < 0.8:
+                return current_root
+            else:
+                # Move to harmonically related note
+                if closest_base in self.NATURAL_PROGRESSIONS:
+                    candidates = self.NATURAL_PROGRESSIONS[closest_base]
+                    return random.choice(candidates)
+                else:
+                    return random.choice(BASE_FREQS)
+        
+        elif mode == "balanced":
+            # 60% stay on same root
+            if random.random() < 0.6:
+                return current_root
+            else:
+                if closest_base in self.NATURAL_PROGRESSIONS:
+                    candidates = self.NATURAL_PROGRESSIONS[closest_base]
+                    # Prefer closer intervals
+                    weights = [0.3, 0.3, 0.2, 0.2]  # Prefer root and fifth
+                    return random.choices(candidates, weights=weights)[0]
+                else:
+                    return random.choice(BASE_FREQS)
+        
+        else:  # dynamic
+            # 30% stay on same root
+            if random.random() < 0.3:
+                return current_root
+            else:
+                return random.choice(BASE_FREQS)
+    
+    @classmethod
+    def create_chord(cls, previous_root: float = None, mode: str = "balanced") -> List[float]:
+        """Generate chords suitable for mindfulness with mode consideration"""
+        if previous_root is None:
+            root = random.choice(BASE_FREQS)
+        else:
+            synth = cls()
+            root = synth.select_next_root(previous_root, mode)
         
         # Mindfulness-oriented chord types
-        chord_types = [
-            ([0], "Single Note"),                     # Drone
-            ([0, 12], "Octave"),                      # Octave
-            ([0, 7], "Perfect Fifth"),                # Perfect fifth
-            ([0, 7, 12], "Open Fifth Octave"),        # Open fifth and octave
-            ([0, 5], "Perfect Fourth"),               # Perfect fourth
-            ([0, 5, 10], "Quartal Stack"),            # Quartal stack (floating feeling)
-            ([0, 5, 10, 15], "Extended Quartal"),     # Extended quartal stack
-            ([0, 2, 7], "Sus2"),                      # Suspended 2nd (open)
-            ([0, 7, 14], "Double Octave Fifth"),      # Two-octave fifth
-            ([0, 12, 19], "Octave Plus Fifth"),       # Octave plus fifth
-            ([0, 2, 9], "Add9 Open"),                 # Open 9th
-            ([0, 7, 17], "Tenth"),                    # 10th (wide interval)
-        ]
+        if mode == "stable":
+            # Prefer simpler, more stable chords
+            chord_types = [
+                ([0], "Single Note", 0.3),                    # Drone
+                ([0, 12], "Octave", 0.25),                    # Octave
+                ([0, 7], "Perfect Fifth", 0.2),               # Perfect fifth
+                ([0, 7, 12], "Open Fifth Octave", 0.15),      # Open fifth and octave
+                ([0, 5], "Perfect Fourth", 0.1),              # Perfect fourth
+            ]
+        elif mode == "balanced":
+            # Balanced chord selection
+            chord_types = [
+                ([0], "Single Note", 0.15),                   # Drone
+                ([0, 12], "Octave", 0.15),                    # Octave
+                ([0, 7], "Perfect Fifth", 0.15),              # Perfect fifth
+                ([0, 7, 12], "Open Fifth Octave", 0.1),       # Open fifth and octave
+                ([0, 5], "Perfect Fourth", 0.1),              # Perfect fourth
+                ([0, 5, 10], "Quartal Stack", 0.1),           # Quartal stack
+                ([0, 2, 7], "Sus2", 0.1),                     # Suspended 2nd
+                ([0, 7, 14], "Double Octave Fifth", 0.05),    # Two-octave fifth
+                ([0, 2, 9], "Add9 Open", 0.05),               # Open 9th
+                ([0, 7, 17], "Tenth", 0.05),                  # 10th
+            ]
+        else:  # dynamic
+            # More variety in chord selection
+            chord_types = [
+                ([0], "Single Note", 0.08),                     # Drone
+                ([0, 12], "Octave", 0.08),                      # Octave
+                ([0, 7], "Perfect Fifth", 0.08),                # Perfect fifth
+                ([0, 7, 12], "Open Fifth Octave", 0.08),        # Open fifth and octave
+                ([0, 5], "Perfect Fourth", 0.08),               # Perfect fourth
+                ([0, 5, 10], "Quartal Stack", 0.08),            # Quartal stack
+                ([0, 5, 10, 15], "Extended Quartal", 0.08),     # Extended quartal stack
+                ([0, 2, 7], "Sus2", 0.08),                      # Suspended 2nd
+                ([0, 7, 14], "Double Octave Fifth", 0.08),      # Two-octave fifth
+                ([0, 12, 19], "Octave Plus Fifth", 0.08),       # Octave plus fifth
+                ([0, 2, 9], "Add9 Open", 0.08),                 # Open 9th
+                ([0, 7, 17], "Tenth", 0.08),                    # 10th
+            ]
         
-        intervals, chord_name = random.choice(chord_types)
+        # Extract intervals, names, and weights
+        chord_options = [(intervals, name) for intervals, name, _ in chord_types]
+        weights = [weight for _, _, weight in chord_types]
+        
+        # Select chord type with weighted probability
+        selected_chord = random.choices(chord_options, weights=weights)[0]
+        intervals, chord_name = selected_chord
         
         frequencies = []
         for interval in intervals:
