@@ -28,21 +28,23 @@ This application provides a real-time audio generation system that creates conti
 - **Customizable Parameters**: Adjust instrument intervals and ambient mix ratio
 - **Smooth Transitions**: Crossfading between chords and sound types
 - **Simple Reverb Effect**: Adds spatial depth to the soundscape
+- **Adaptive Modulation Modes**: Three modulation behaviors for different meditation styles:
+  - Stable: Minimal harmonic changes for deep meditation
+  - Balanced: Natural progression for regular practice
+  - Dynamic: Active variations for energetic sessions
 
 ### Musical Features
 
-- **Mindfulness-oriented Harmonies**: Uses perfect fifths, fourths, and open
-
-intervals
-
-- **Single Instrument per Session**: Each session focuses on one meditation
-
-instrument for deeper meditation
-
+- **Mindfulness-oriented Harmonies**: Uses perfect fifths, fourths, and open intervals
+- **Single Instrument per Session**: Each session focuses on one meditation instrument for deeper meditation
 - **Harmonic Percussion**: Instruments play notes that harmonize with the current background chord
 - **Natural Rhythm Patterns**: Instruments play 1-3 notes with musical spacing
 - **Dynamic Sound Types**: Multiple synthesis methods for tonal variety
 - **Breathing Synchronization**: Subtle volume modulation aligned with breath cycles
+- **Adaptive Modulation System**: Three behavior modes that control harmonic progression patterns:
+  - Natural harmonic progressions based on the circle of fifths
+  - Time-based probability system for chord changes
+  - Gradual calming effect over extended sessions
 
 ## Project Structure
 
@@ -151,6 +153,7 @@ python main.py
 | `--handpan` | Handpan interval (seconds) | `12-30` | `--handpan 20` or `--handpan 15-25` |
 | `--crystal-bowl` | Crystal bowl interval (seconds) | `25-60` | `--crystal-bowl 40` or `--crystal-bowl 30-50` |
 | `--ambient` | Ambient sound ratio (0-1) | `0.3` | `--ambient 0.5` |
+| `--modulation-mode` | Harmonic modulation behavior | `balanced` | `--modulation-mode stable` |
 
 #### Usage Examples
 
@@ -170,6 +173,18 @@ Ambient sounds only (no percussion):
 
 ```bash
 python main.py --bell 0 --drum 0 --handpan 0 --crystal-bowl 0
+```
+
+Deep meditation with minimal harmonic changes:
+
+```bash
+python main.py --modulation-mode stable
+```
+
+Active meditation with dynamic variations:
+
+```bash
+python main.py --modulation-mode dynamic --ambient 0.5
 ```
 
 ### Web Interface (app.py)
@@ -221,6 +236,12 @@ This version features:
   - Quartal harmonies
   - Sus2 chords
   - Open voicings
+- **Modulation System**:
+  - **Stable Mode**: 80% probability of staying on same root, minimal changes
+  - **Balanced Mode**: 60% root stability, preferring fifths and fourths
+  - **Dynamic Mode**: 30% root stability, free modulation across all roots
+  - Natural harmonic progressions based on circle of fifths
+  - Time-based probability with gradual calming effect
 
 ### Sound Generation
 
@@ -363,12 +384,18 @@ Utilities Layer
 - Thread management for schedulers
 - Real-time audio callback processing
 - Transition handling (volume, chord, sound type)
+- Modulation mode system with three behaviors
+- Natural harmonic progression tracking
+- Bridge chord creation for smooth modulations
 
 #### Synthesizer (`src/synthesizer.py`)
 
 - Tone generation with multiple sound types
 - Chord creation optimized for meditation
 - Harmonic and inharmonic synthesis
+- Natural harmonic progressions based on circle of fifths
+- Mode-aware root selection for chord progressions
+- Weighted chord type selection based on modulation mode
 
 #### Instruments (`src/instruments.py`)
 
@@ -441,6 +468,7 @@ Contributions are welcome! Please follow these guidelines:
 - v1.2.0 - Enhanced ambient sounds and volume controls
 - v1.3.0 - Added Raspberry Pi optimization
 - v1.4.0 - Improved harmonic system and single instrument focus
+- v1.5.0 - Added adaptive modulation modes for different meditation styles
 
 ## Future Roadmap
 
