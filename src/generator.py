@@ -1,6 +1,6 @@
 """
 Main BGM generator class for Mindfulness BGM Generator
-Enhanced with balanced modulation system and improved audio processing
+Enhanced with extended harmonic progression and chord variations
 """
 
 import numpy as np
@@ -18,11 +18,14 @@ from src.effects import AudioEffects
 
 
 class MindfulnessBGM:
-    """Dynamic mindfulness BGM generator class with balanced modulation"""
+    """Dynamic mindfulness BGM generator class with enhanced harmonic features"""
     
     def __init__(self, bell_config: InstrumentConfig, drum_config: InstrumentConfig, 
                  handpan_config: InstrumentConfig, crystal_bowl_config: InstrumentConfig,
-                 ambient_ratio: float, modulation_mode: str = "balanced"):
+                 ambient_ratio: float, modulation_mode: str = "balanced",
+                 harmonic_richness: str = "normal", chord_variety: str = "normal",
+                 progression_style: str = "circle-of-fifths", session_evolution: bool = False,
+                 binaural_enhancement: bool = False):
         self.sample_rate = SAMPLE_RATE
         self.phase = 0
         self.lock = threading.Lock()
@@ -47,6 +50,13 @@ class MindfulnessBGM:
         
         # Ambient sound settings
         self.ambient_ratio = ambient_ratio
+        
+        # Extended chord and chord progression settings
+        self.harmonic_richness = harmonic_richness
+        self.chord_variety = chord_variety
+        self.progression_style = progression_style
+        self.session_evolution = session_evolution
+        self.binaural_enhancement = binaural_enhancement
         
         # Components
         self.synthesizer = Synthesizer()
@@ -80,6 +90,24 @@ class MindfulnessBGM:
         self.session_start = time.time()
         self.modulation_phase = 0
         
+        # Parameters for session evolution
+        self.evolution_progress = 0.0  # 0.0 (start) to 1.0 (fully evolved)
+        self.evolution_target = random.uniform(0.4, 0.6)  # Evolution target value
+        
+        # Chord progression tracking in healing mode
+        self.progression_history = []
+        self.progression_position = 0
+        
+        # Set chord generation method before start
+        if self.progression_style == "modal":
+            self.chord = self.synthesizer.create_modal_chord()
+        elif self.progression_style == "pentatonic":
+            self.chord = self.synthesizer.create_pentatonic_chord()
+        else:
+            self.chord = self.synthesizer.create_chord(chord_variety=self.chord_variety)
+        
+        self.current_root = self._extract_root(self.chord)
+        
         # Start schedulers
         self._start_schedulers()
     
@@ -89,10 +117,22 @@ class MindfulnessBGM:
             return min(chord)  # Lowest frequency is typically the root
         return None
     
+    def _get_binaural_factor(self, channel):
+        """Get frequency shift factor for binaural enhancement"""
+        if not self.binaural_enhancement:
+            return 1.0
+        
+        # Generate a very subtle frequency difference between left and right channels
+        # (Typical binaural beats have a difference of 1-40Hz, so use a more subtle 0.1-1Hz difference)
+        if channel == 0:  # Left channel
+            return 1.0 - random.uniform(0.0001, 0.0015)
+        else:  # Right channel
+            return 1.0 + random.uniform(0.0001, 0.0015)
+    
     def _create_bridge_chord(self, current_root, target_root):
         """Create a transitional chord between two roots"""
         if current_root is None or target_root is None:
-            return self.synthesizer.create_chord()
+            return self.synthesizer.create_chord(chord_variety=self.chord_variety)
         
         # Create a chord that contains notes from both keys
         # This creates a smoother transition
@@ -101,6 +141,10 @@ class MindfulnessBGM:
         # Add a note that connects both keys
         if abs(current_root - target_root) > 100:  # Large interval
             bridge_intervals.append(5)  # Add fourth
+        
+        # Add extra notes depending on chord variety
+        if self.chord_variety == "extended":
+            bridge_intervals.extend([2, 9])  # Add 2nd and 9th for extended variety
         
         frequencies = []
         for interval in bridge_intervals:
@@ -114,6 +158,10 @@ class MindfulnessBGM:
         # Start event scheduler
         threading.Thread(target=self._event_scheduler, daemon=True).start()
         
+        # Start session evolution scheduler if enabled
+        if self.session_evolution:
+            threading.Thread(target=self._evolution_scheduler, daemon=True).start()
+        
         # Conditionally start percussion schedulers
         if self.bell_config.enabled:
             threading.Thread(target=self._bell_scheduler, daemon=True).start()
@@ -123,6 +171,25 @@ class MindfulnessBGM:
             threading.Thread(target=self._handpan_scheduler, daemon=True).start()
         if self.crystal_bowl_config.enabled:
             threading.Thread(target=self._crystal_bowl_scheduler, daemon=True).start()
+    
+    def _evolution_scheduler(self):
+        """Session evolution scheduler - music slowly changes over time"""
+        # Gradually changes over 30 minutes
+        evolution_duration = 1800  # 30 minutes
+        
+        start_time = time.time()
+        while True:
+            elapsed = time.time() - start_time
+            
+            # Calculate evolution progress (0.0 to 1.0)
+            self.evolution_progress = min(1.0, elapsed / evolution_duration)
+            
+            # Wait at each evolution step (every 1%)
+            time.sleep(evolution_duration / 100)
+            
+            # Stop when evolution is complete
+            if self.evolution_progress >= 1.0:
+                break
     
     def _bell_scheduler(self):
         """Bell scheduler"""
@@ -235,17 +302,27 @@ class MindfulnessBGM:
             # Base probability from mode
             base_probability = self.modulation_chances[self.modulation_mode]
             
-            # Time decay for "stable" mode
-            if self.modulation_mode == "stable":
-                time_decay = np.exp(-elapsed / 1200)  # 20 minutes half-life
-                modulation_probability = base_probability * time_decay
+            # Probability adjustment by session evolution
+            if self.session_evolution:
+                if self.evolution_progress < self.evolution_target:
+                    # First half: less change
+                    modulation_probability = base_probability * (0.5 + 0.5 * self.evolution_progress / self.evolution_target)
+                else:
+                    # Latter half: more change, then gradually calms down
+                    progress_after_target = (self.evolution_progress - self.evolution_target) / (1.0 - self.evolution_target)
+                    modulation_probability = base_probability * (1.2 - 0.4 * progress_after_target)
             else:
-                # Wave pattern for balanced and dynamic modes
-                modulation_probability = base_probability * wave
-                
-                # Gradual calming effect for all modes
-                calming_factor = max(0.3, np.exp(-elapsed / 1800))  # 30 minutes
-                modulation_probability *= calming_factor
+                # Time decay for "stable" mode
+                if self.modulation_mode == "stable":
+                    time_decay = np.exp(-elapsed / 1200)  # 20 minutes half-life
+                    modulation_probability = base_probability * time_decay
+                else:
+                    # Wave pattern for balanced and dynamic modes
+                    modulation_probability = base_probability * wave
+                    
+                    # Gradual calming effect for all modes
+                    calming_factor = max(0.3, np.exp(-elapsed / 1800))  # 30 minutes
+                    modulation_probability *= calming_factor
             
             # Choose event type
             if random.random() < modulation_probability:
@@ -268,22 +345,52 @@ class MindfulnessBGM:
             self.fade_progress = 0.0
 
     def _change_chord(self):
-        """Enhanced chord change with smoother transitions"""
+        """Enhanced chord change with smoother transitions and progression styles"""
         with self.lock:
             if not self.is_preparing_modulation and self.modulation_mode != "dynamic":
                 # Preparation stage: create bridge chord
-                new_root = self.synthesizer.select_next_root(self.current_root, self.modulation_mode)
+                if self.progression_style == "circle-of-fifths":
+                    new_root = self.synthesizer.select_next_root(self.current_root, self.modulation_mode)
+                elif self.progression_style == "pentatonic":
+                    new_root = self.synthesizer.select_next_pentatonic_root(self.current_root)
+                elif self.progression_style == "modal":
+                    new_root = self.synthesizer.select_next_modal_root(self.current_root)
+                else:  # random
+                    new_root = random.choice(BASE_FREQS)
+                
                 self.preparation_chord = self._create_bridge_chord(self.current_root, new_root)
                 self.is_preparing_modulation = True
                 self.next_chord = self.preparation_chord
             else:
                 # Actual modulation or direct change for dynamic mode
-                self.next_chord = self.synthesizer.create_chord(
-                    previous_root=self.current_root,
-                    mode=self.modulation_mode
-                )
+                if self.progression_style == "circle-of-fifths":
+                    self.next_chord = self.synthesizer.create_chord(
+                        previous_root=self.current_root,
+                        mode=self.modulation_mode,
+                        chord_variety=self.chord_variety
+                    )
+                elif self.progression_style == "pentatonic":
+                    self.next_chord = self.synthesizer.create_pentatonic_chord(
+                        previous_root=self.current_root,
+                        mode=self.modulation_mode
+                    )
+                elif self.progression_style == "modal":
+                    self.next_chord = self.synthesizer.create_modal_chord(
+                        previous_root=self.current_root,
+                        mode=self.modulation_mode
+                    )
+                else:  # random
+                    self.next_chord = self.synthesizer.create_chord(
+                        chord_variety=self.chord_variety
+                    )
+                
                 self.is_preparing_modulation = False
                 self.current_root = self._extract_root(self.next_chord)
+                
+                # Add to progression history
+                if len(self.progression_history) > 10:
+                    self.progression_history.pop(0)  # Remove old chord
+                self.progression_history.append(self.next_chord)
             
             self.is_transitioning = True
             self.fade_progress = 0.0
@@ -332,7 +439,7 @@ class MindfulnessBGM:
         for i, freq in enumerate(self.chord):
             # Add slightly different timing to each voice (natural spread)
             t_offset = t + i * 0.001
-            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type)
+            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type, self.harmonic_richness)
             current_wave += tone
         
         # Normalize by number of voices
@@ -346,7 +453,7 @@ class MindfulnessBGM:
             
             for i, freq in enumerate(next_chord):
                 t_offset = t + i * 0.001
-                tone = self.synthesizer.generate_tone(freq, t_offset, next_type)
+                tone = self.synthesizer.generate_tone(freq, t_offset, next_type, self.harmonic_richness)
                 next_wave += tone
             
             next_wave /= len(next_chord)
@@ -406,21 +513,26 @@ class MindfulnessBGM:
         main_rms = np.sqrt(np.mean(sig ** 2)) if len(sig) > 0 else 0.001
         perc_rms = np.sqrt(np.mean(percussion_mix ** 2)) if len(percussion_mix) > 0 else 0.001
         
-        # パーカッションのレベルを自動調整
-        if perc_rms > 0.001:  # ゼロ除算を避ける
-            perc_scale = min(1.0, main_rms / (perc_rms * 2))  # メインの半分程度に
+        # Automatically adjust percussion level
+        if perc_rms > 0.001:  # Avoid division by zero
+            perc_scale = min(1.0, main_rms / (perc_rms * 2))  # About half of main
             percussion_mix *= perc_scale
         
         sig += percussion_mix
         
         # Apply final processing with improved limiting
-        sig *= VOLUME * HEADROOM_LINEAR  # ヘッドルーム確保
+        sig *= VOLUME * HEADROOM_LINEAR  # Ensure headroom
         sig = self.effects.apply_soft_limiting(sig, LIMITER_THRESHOLD, LIMITER_CEILING, LIMITER_KNEE)
         sig = sig.astype(np.float32)
         
-        # Apply stereo enhancement
-        outdata[:] = self.effects.apply_stereo_enhancement(
-            sig, STEREO_DELAY_1, STEREO_DELAY_2, STEREO_MIX_1, STEREO_MIX_2
-        )
+        # Apply stereo enhancement with optional binaural enhancement
+        if self.binaural_enhancement:
+            out_stereo = self.effects.apply_binaural_enhancement(sig, t)
+        else:
+            out_stereo = self.effects.apply_stereo_enhancement(
+                sig, STEREO_DELAY_1, STEREO_DELAY_2, STEREO_MIX_1, STEREO_MIX_2
+            )
+        
+        outdata[:] = out_stereo
         
         self.phase += frames

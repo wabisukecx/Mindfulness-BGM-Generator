@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mindfulness BGM Generator - Main Entry Point
-High Quality Version with Modular Structure and Balanced Modulation
+Enhanced Version with Extended Harmonic Progression and Chord Variations
 """
 
 import sounddevice as sd
@@ -16,8 +16,8 @@ from src.utils import parse_instrument_interval, parse_ambient_value
 
 
 def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="Mindfulness BGM Generator - High Quality Version")
+    """Parse command line arguments with extended harmonic options"""
+    parser = argparse.ArgumentParser(description="Mindfulness BGM Generator - Enhanced Harmonic Version")
     
     parser.add_argument("--bell", type=str, default="15-45",
                       help="Tibetan bell interval in seconds")
@@ -34,6 +34,19 @@ def parse_arguments():
     parser.add_argument("--modulation-mode", type=str, default="balanced",
                       choices=["stable", "balanced", "dynamic"],
                       help="Modulation behavior: stable (calm), balanced, or dynamic (active)")
+    parser.add_argument("--harmonic-richness", type=str, default="normal",
+                      choices=["minimal", "normal", "rich"],
+                      help="Harmonic richness level: minimal (fewer harmonics), normal, rich (more harmonics)")
+    parser.add_argument("--chord-variety", type=str, default="normal",
+                      choices=["limited", "normal", "extended"],
+                      help="Chord variety: limited (fewer chord types), normal, extended (more chord types)")
+    parser.add_argument("--progression-style", type=str, default="circle-of-fifths",
+                      choices=["circle-of-fifths", "pentatonic", "modal", "random"],
+                      help="Chord progression style: circle-of-fifths (traditional), pentatonic (eastern), modal (evocative), random")
+    parser.add_argument("--session-evolution", action="store_true", default=True,
+                      help="Enable gradual evolution of chord progressions over the session duration")
+    parser.add_argument("--binaural-enhancement", action="store_true", default=True,
+                      help="Enhance stereo field with subtle binaural-inspired frequency differences")
     
     return parser.parse_args()
 
@@ -75,9 +88,21 @@ def setup_instruments(args):
     return configs, selected_instrument
 
 
-def display_settings(instrument_configs, ambient_ratio, modulation_mode):
-    """Display current settings"""
-    print("Starting mindfulness BGM (High Quality Version)...")
+def create_harmonic_config(args):
+    """Create harmonic configuration based on extended arguments"""
+    harmonic_config = {
+        'harmonic_richness': args.harmonic_richness,
+        'chord_variety': args.chord_variety,
+        'progression_style': args.progression_style,
+        'session_evolution': args.session_evolution,
+        'binaural_enhancement': args.binaural_enhancement
+    }
+    return harmonic_config
+
+
+def display_settings(instrument_configs, ambient_ratio, modulation_mode, harmonic_config):
+    """Display current settings with extended harmonic information"""
+    print("Starting mindfulness BGM (Enhanced Harmonic Version)...")
     print("\nSettings:")
     print("- Four meditation instruments with enhanced harmonics")
     print("- Enhanced reverb effect (0.3s)")
@@ -93,6 +118,40 @@ def display_settings(instrument_configs, ambient_ratio, modulation_mode):
         "dynamic": "Active modulation for energetic sessions"
     }
     print(f"  {mode_descriptions[modulation_mode]}")
+    
+    print("\nHarmonic settings:")
+    
+    richness_descriptions = {
+        "minimal": "Minimal harmonics for pure tones",
+        "normal": "Standard harmonic content",
+        "rich": "Rich harmonic content for fuller sound"
+    }
+    print(f"- Harmonic richness: {harmonic_config['harmonic_richness']} ({richness_descriptions[harmonic_config['harmonic_richness']]})")
+    
+    chord_variety_descriptions = {
+        "limited": "Limited chord types for stability",
+        "normal": "Standard selection of mindfulness-oriented chords",
+        "extended": "Extended chord vocabulary for variety"
+    }
+    print(f"- Chord variety: {harmonic_config['chord_variety']} ({chord_variety_descriptions[harmonic_config['chord_variety']]})")
+    
+    progression_descriptions = {
+        "circle-of-fifths": "Natural progressions based on circle of fifths",
+        "pentatonic": "Pentatonic-based movement for Eastern feel",
+        "modal": "Modal progressions for evocative atmosphere",
+        "random": "Randomized progressions for maximum variety"
+    }
+    print(f"- Progression style: {harmonic_config['progression_style']} ({progression_descriptions[harmonic_config['progression_style']]})")
+    
+    if harmonic_config['session_evolution']:
+        print("- Session evolution: ENABLED (progressions evolve over time)")
+    else:
+        print("- Session evolution: DISABLED")
+        
+    if harmonic_config['binaural_enhancement']:
+        print("- Binaural enhancement: ENABLED (subtle frequency differences between stereo channels)")
+    else:
+        print("- Binaural enhancement: DISABLED")
     
     print("\nInstrument settings:")
     
@@ -119,7 +178,7 @@ def display_settings(instrument_configs, ambient_ratio, modulation_mode):
 
 
 def main():
-    """Main entry point"""
+    """Main entry point with enhanced harmonic options"""
     try:
         # Parse command line arguments
         args = parse_arguments()
@@ -130,22 +189,30 @@ def main():
         # Parse ambient sound settings
         ambient_ratio = parse_ambient_value(args.ambient)
         
+        # Create harmonic configuration
+        harmonic_config = create_harmonic_config(args)
+        
         # Display settings
-        display_settings(instrument_configs, ambient_ratio, args.modulation_mode)
+        display_settings(instrument_configs, ambient_ratio, args.modulation_mode, harmonic_config)
         
         # Configure audio device
         sd.default.samplerate = SAMPLE_RATE
         sd.default.blocksize = BUFFER_FRAMES
         sd.default.channels = 2
         
-        # Create generator
+        # Create generator with enhanced options
         generator = MindfulnessBGM(
             instrument_configs['bell'],
             instrument_configs['drum'],
             instrument_configs['handpan'],
             instrument_configs['crystal_bowl'],
             ambient_ratio,
-            modulation_mode=args.modulation_mode
+            modulation_mode=args.modulation_mode,
+            harmonic_richness=harmonic_config['harmonic_richness'],
+            chord_variety=harmonic_config['chord_variety'],
+            progression_style=harmonic_config['progression_style'],
+            session_evolution=harmonic_config['session_evolution'],
+            binaural_enhancement=harmonic_config['binaural_enhancement']
         )
         
         # Start audio stream
