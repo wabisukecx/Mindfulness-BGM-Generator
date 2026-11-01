@@ -7,8 +7,8 @@ import numpy as np
 from typing import List
 import random
 
-from src.config import BASE_FREQS
-from src.sound_types import SoundType
+from src.config import BASE_FREQS, SAMPLE_RATE
+from src.sound_types import SoundType, BELL_LIKE_SUSTAIN
 
 
 class Synthesizer:
@@ -118,13 +118,17 @@ class Synthesizer:
                 return random.choice(BASE_FREQS)
     
     @classmethod
-    def create_chord(cls, previous_root: float = None, mode: str = "balanced", chord_variety: str = "normal") -> List[float]:
-        """Generate chords suitable for mindfulness with mode and variety consideration"""
-        if previous_root is None:
+    def create_chord(cls, previous_root: float = None, mode: str = "balanced", chord_variety: str = "normal",
+                     root: float = None) -> List[float]:
+        """Generate chords suitable for mindfulness with mode and variety consideration
+
+        An explicit root (e.g. a modulation target already announced by a
+        bridge chord) takes precedence over choosing one from previous_root.
+        """
+        if root is None and previous_root is None:
             root = random.choice(BASE_FREQS)
-        else:
-            synth = cls()
-            root = synth.select_next_root(previous_root, mode)
+        elif root is None:
+            root = cls().select_next_root(previous_root, mode)
         
         # Chord types differ depending on variety level
         if chord_variety == "limited":
@@ -266,13 +270,13 @@ class Synthesizer:
         return frequencies
     
     @classmethod
-    def create_pentatonic_chord(cls, previous_root: float = None, mode: str = "balanced") -> List[float]:
+    def create_pentatonic_chord(cls, previous_root: float = None, mode: str = "balanced",
+                                root: float = None) -> List[float]:
         """Generate chords based on the pentatonic scale"""
-        if previous_root is None:
+        if root is None and previous_root is None:
             root = random.choice(BASE_FREQS)
-        else:
-            synth = cls()
-            root = synth.select_next_pentatonic_root(previous_root)
+        elif root is None:
+            root = cls().select_next_pentatonic_root(previous_root)
         
         # Chord types for pentatonic - emphasizes open voicings and perfect fifths/fourths
         chord_types = [
@@ -303,7 +307,7 @@ class Synthesizer:
         
         # Select chord with weighted probability
         selected_index = random.choices(range(len(chord_types)), weights=weights)[0]
-        intervals, chord_name = chord_types[selected_index]
+        intervals, chord_name, _ = chord_types[selected_index]
         
         # Pentatonic scale adjustment - ensures all notes are in the pentatonic scale
         pentatonic_intervals = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]  # A pentatonic scale intervals
@@ -321,13 +325,13 @@ class Synthesizer:
         return frequencies
     
     @classmethod
-    def create_modal_chord(cls, previous_root: float = None, mode: str = "balanced") -> List[float]:
+    def create_modal_chord(cls, previous_root: float = None, mode: str = "balanced",
+                           root: float = None) -> List[float]:
         """Generate chords based on modal progressions - Dorian, Mixolydian, Aeolian, etc."""
-        if previous_root is None:
+        if root is None and previous_root is None:
             root = random.choice(BASE_FREQS)
-        else:
-            synth = cls()
-            root = synth.select_next_modal_root(previous_root)
+        elif root is None:
+            root = cls().select_next_modal_root(previous_root)
         
         # Modal selection (Dorian, Phrygian, Lydian, Mixolydian, Aeolian)
         # Each mode has characteristic interval relationships for chord construction
@@ -380,7 +384,7 @@ class Synthesizer:
         else:
             selected_index = random.randrange(len(filtered_types))
         
-        intervals, chord_name = filtered_types[selected_index]
+        intervals, chord_name, _ = filtered_types[selected_index]
         
         frequencies = []
         for interval in intervals:
@@ -390,8 +394,11 @@ class Synthesizer:
         return frequencies
     
     @staticmethod
-    def generate_tone(freq: float, t: np.ndarray, sound_type: SoundType, harmonic_richness: str = "normal") -> np.ndarray:
+    def generate_tone(freq: float, t: np.ndarray, sound_type: SoundType, harmonic_richness: str = "normal",
+                      envelope_t: np.ndarray = None, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
         """Generate waveform according to sound type and harmonic richness"""
+        if envelope_t is None:
+            envelope_t = t
         # Adjust the strength and number of harmonics based on harmonic richness
         if harmonic_richness == "minimal":
             # Minimal harmonics - purer timbre
@@ -430,67 +437,65 @@ class Synthesizer:
         
         # Harmonic levels to use
         levels = harmonic_levels[sound_type]
-        
+        nyquist = sample_rate / 2
+
+        def partial(ratio):
+            """Sine at freq * ratio, silent at or above Nyquist so it cannot alias."""
+            if freq * ratio >= nyquist:
+                return 0.0
+            return np.sin(2 * np.pi * freq * ratio * t)
+
         if sound_type == SoundType.HARMONIC:
             wave = np.zeros_like(t)
             # Fundamental and harmonics
             for i, level in enumerate(levels):
-                wave += level * np.sin(2 * np.pi * freq * (i + 1) * t)
+                wave += level * partial(i + 1)
             return wave * 0.35
             
         elif sound_type == SoundType.PURE:
             wave = np.zeros_like(t)
             for i, level in enumerate(levels):
-                wave += level * np.sin(2 * np.pi * freq * (i + 1) * t)
+                wave += level * partial(i + 1)
             return wave * 0.5
             
         elif sound_type == SoundType.SOFT_PAD:
             wave = np.zeros_like(t)
             # Fundamental and harmonics
             for i, level in enumerate(levels):
-                if i == 0:
-                    wave += level * np.sin(2 * np.pi * freq * t)
-                else:
-                    wave += level * np.sin(2 * np.pi * freq * i * t)
+                wave += level * partial(i + 1)
             
-            # Add 0.5th harmonic (perfect fifth below octave) for SOFT_PAD
-            wave += 0.15 * np.sin(2 * np.pi * freq * 0.5 * t)
+            # Add a sub-octave (0.5x) for SOFT_PAD warmth
+            wave += 0.15 * partial(0.5)
             
             # Soft attack
-            attack = 1 - np.exp(-3 * t)
+            attack = 1 - np.exp(-3 * envelope_t)
             return wave * attack * 0.4
             
         elif sound_type == SoundType.WARM:
             wave = np.zeros_like(t)
             # Fundamental and harmonics
             for i, level in enumerate(levels):
-                if i < len(levels):
-                    wave += level * np.sin(2 * np.pi * freq * (i + 1) * t)
+                wave += level * partial(i + 1)
             
             # Add subharmonics (lower harmonics)
             subs = subharmonic_levels[harmonic_richness]
             for i, level in enumerate(subs):
-                subfreq = freq * (0.5 ** (i + 1))  # One octave down, two octaves down, etc.
-                wave += level * np.sin(2 * np.pi * subfreq * t)
+                wave += level * partial(0.5 ** (i + 1))  # One octave down, two octaves down, etc.
             
             return wave * 0.35
             
         elif sound_type == SoundType.BELL_LIKE:
             wave = np.zeros_like(t)
-            # Fundamental and harmonics
+            # First three are harmonic; the rest are inharmonic overtones
+            ratios = [1, 2, 3, 5.7, 7.3]
             for i, level in enumerate(levels):
-                if i < 3:  # First three are normal harmonics
-                    wave += level * np.sin(2 * np.pi * freq * (i + 1) * t)
-                elif i == 3:  # 4th is inharmonic overtone
-                    wave += level * np.sin(2 * np.pi * freq * 5.7 * t)
-                elif i == 4:  # 5th is also inharmonic overtone
-                    wave += level * np.sin(2 * np.pi * freq * 7.3 * t)
-                elif i >= 5:  # Higher inharmonic overtones
-                    wave += level * np.sin(2 * np.pi * freq * (8.5 + i * 0.8) * t)
+                ratio = ratios[i] if i < len(ratios) else 8.5 + i * 0.8
+                wave += level * partial(ratio)
             
-            # Bell-like decay
-            decay = np.exp(-2 * t)
+            # Bell-like strike that settles to a sustained floor, so the drone
+            # never falls silent while this timbre is active
+            decay = BELL_LIKE_SUSTAIN + (1 - BELL_LIKE_SUSTAIN) * np.exp(-2 * envelope_t)
             return wave * decay * 0.4
             
         # Default fallback
-        return np.sin(2 * np.pi * freq * t) * 0.5
+        return partial(1) * 0.5

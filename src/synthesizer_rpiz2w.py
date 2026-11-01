@@ -8,7 +8,7 @@ from typing import List
 import random
 
 from src.config_rpiz2w import BASE_FREQS
-from src.sound_types import SoundType
+from src.sound_types import SoundType, BELL_LIKE_SUSTAIN
 
 
 class SynthesizerRPiZ2W:
@@ -45,8 +45,10 @@ class SynthesizerRPiZ2W:
         return frequencies
     
     @staticmethod
-    def generate_tone(freq: float, t: np.ndarray, sound_type: SoundType) -> np.ndarray:
+    def generate_tone(freq: float, t: np.ndarray, sound_type: SoundType, envelope_t: np.ndarray = None) -> np.ndarray:
         """Generate waveform according to sound type (optimized)"""
+        if envelope_t is None:
+            envelope_t = t
         if sound_type == SoundType.HARMONIC:
             wave = np.sin(2 * np.pi * freq * t)
             wave += 0.25 * np.sin(2 * np.pi * freq * 2 * t)
@@ -63,7 +65,7 @@ class SynthesizerRPiZ2W:
             wave = np.sin(2 * np.pi * freq * t)
             wave += 0.15 * np.sin(2 * np.pi * freq * 0.5 * t)
             wave += 0.08 * np.sin(2 * np.pi * freq * 2 * t)
-            attack = 1 - np.exp(-3 * t)
+            attack = 1 - np.exp(-3 * envelope_t)
             return wave * attack * 0.4
             
         elif sound_type == SoundType.WARM:
@@ -77,5 +79,6 @@ class SynthesizerRPiZ2W:
             wave = np.sin(2 * np.pi * freq * t)
             wave += 0.3 * np.sin(2 * np.pi * freq * 2 * t)
             wave += 0.2 * np.sin(2 * np.pi * freq * 3 * t)
-            decay = np.exp(-2 * t)
+            # Settle to a sustained floor so the drone never falls silent
+            decay = BELL_LIKE_SUSTAIN + (1 - BELL_LIKE_SUSTAIN) * np.exp(-2 * envelope_t)
             return wave * decay * 0.4

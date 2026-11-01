@@ -4,6 +4,9 @@ Sound type definitions for Mindfulness BGM Generator
 
 from enum import Enum
 
+# Level the BELL_LIKE timbre settles to after its strike (fraction of peak)
+BELL_LIKE_SUSTAIN = 0.3
+
 class SoundType(Enum):
     """Different types of synthesized sounds"""
     

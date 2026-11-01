@@ -109,6 +109,7 @@ def display_settings(instrument_configs, ambient_ratio):
 
 def main():
     """Main entry point"""
+    generator = None
     try:
         # Parse command line arguments
         args = parse_arguments()
@@ -133,16 +134,22 @@ def main():
             instrument_configs['drum'],
             instrument_configs['handpan'],
             instrument_configs['crystal_bowl'],
-            ambient_ratio
+            ambient_ratio, auto_start=False
         )
         
-        # Start audio stream
-        with sd.OutputStream(callback=generator.callback):
+        # Start audio stream; an exception in the callback or a lost device
+        # stops the stream, so leave rather than waiting on in silence
+        with sd.OutputStream(callback=generator.callback) as stream:
+            generator.start()
             try:
-                while True:
-                    time.sleep(1)
+                while stream.active:
+                    time.sleep(0.5)
             except KeyboardInterrupt:
                 print("\nGracefully stopping...")
+                return 0
+        print("\nPlayback interrupted: the audio output stopped. "
+              "Check the audio device connection.")
+        return 1
                 
     except ValueError as e:
         print(f"Error: {e}")
@@ -151,6 +158,10 @@ def main():
         print(f"Unexpected error: {e}")
         return 1
     
+    finally:
+        if generator is not None:
+            generator.stop()
+
     return 0
 
 

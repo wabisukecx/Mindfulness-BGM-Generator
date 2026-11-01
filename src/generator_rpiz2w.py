@@ -10,7 +10,7 @@ import random
 
 from src.config_rpiz2w import *
 from src.sound_types import SoundType
-from src.instruments_base import InstrumentConfig
+from src.instruments_base import InstrumentConfig, VoicePool
 from src.instruments_rpiz2w import (
     TibetanBellRPiZ2W, SlitDrumRPiZ2W, HandpanRPiZ2W, CrystalSingingBowlRPiZ2W
 )
@@ -19,15 +19,22 @@ from src.ambient_sounds_rpiz2w import AmbientSoundGeneratorRPiZ2W
 from src.effects_rpiz2w import AudioEffectsRPiZ2W
 
 
-class MindfulnessBGMRPiZ2W:
+from src.schedulers import SchedulerLifecycle
+from src.transitions import TransitionMixin
+
+
+class MindfulnessBGMRPiZ2W(SchedulerLifecycle, TransitionMixin):
     """Optimized mindfulness BGM generator for Raspberry Pi Zero 2 W"""
     
     def __init__(self, bell_config: InstrumentConfig, drum_config: InstrumentConfig, 
                  handpan_config: InstrumentConfig, crystal_bowl_config: InstrumentConfig,
-                 ambient_ratio: float):
+                 ambient_ratio: float, auto_start: bool = True):
         self.sample_rate = SAMPLE_RATE
         self.phase = 0
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self._init_schedulers()
+        self.sound_start_frame = 0
+        self.next_sound_start_frame = 0
         
         # Sound type management
         self.current_sound_type = SoundType.PURE
@@ -46,6 +53,8 @@ class MindfulnessBGMRPiZ2W:
         # Fade management
         self.fade_progress = 0.0
         self.is_transitioning = False
+        self.fade_time = FADE_TIME
+        self._init_transitions()
         
         # Ambient sound settings
         self.ambient_ratio = ambient_ratio
@@ -56,10 +65,10 @@ class MindfulnessBGMRPiZ2W:
         self.effects = AudioEffectsRPiZ2W(self.sample_rate)
         
         # Percussion instruments (optimized versions)
-        self.tibetan_bell = TibetanBellRPiZ2W(self.sample_rate)
-        self.slit_drum = SlitDrumRPiZ2W(self.sample_rate)
-        self.handpan = HandpanRPiZ2W(self.sample_rate)
-        self.crystal_bowl = CrystalSingingBowlRPiZ2W(self.sample_rate)
+        self.tibetan_bell = VoicePool(TibetanBellRPiZ2W, self.sample_rate)
+        self.slit_drum = VoicePool(SlitDrumRPiZ2W, self.sample_rate)
+        self.handpan = VoicePool(HandpanRPiZ2W, self.sample_rate)
+        self.crystal_bowl = VoicePool(CrystalSingingBowlRPiZ2W, self.sample_rate)
         
         # Percussion configurations
         self.bell_config = bell_config
@@ -68,29 +77,16 @@ class MindfulnessBGMRPiZ2W:
         self.crystal_bowl_config = crystal_bowl_config
         
         # Start schedulers
-        self._start_schedulers()
-    
-    def _start_schedulers(self):
-        """Start event and instrument schedulers"""
-        # Start event scheduler
-        threading.Thread(target=self._event_scheduler, daemon=True).start()
-        
-        # Conditionally start percussion schedulers
-        if self.bell_config.enabled:
-            threading.Thread(target=self._bell_scheduler, daemon=True).start()
-        if self.drum_config.enabled:
-            threading.Thread(target=self._drum_scheduler, daemon=True).start()
-        if self.handpan_config.enabled:
-            threading.Thread(target=self._handpan_scheduler, daemon=True).start()
-        if self.crystal_bowl_config.enabled:
-            threading.Thread(target=self._crystal_bowl_scheduler, daemon=True).start()
+        if auto_start:
+            self.start()
     
     def _bell_scheduler(self):
         """Bell scheduler"""
-        while True:
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.bell_config.min_interval, 
                                      self.bell_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -108,15 +104,18 @@ class MindfulnessBGMRPiZ2W:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 4.0))
+                    if self.stop_flag.wait(random.uniform(1.0, 4.0)):
+                        return
 
     def _drum_scheduler(self):
         """Slit drum scheduler"""
-        time.sleep(5)
-        while True:
+        if self.stop_flag.wait(5):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.drum_config.min_interval, 
                                      self.drum_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -134,15 +133,18 @@ class MindfulnessBGMRPiZ2W:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 3.0))
+                    if self.stop_flag.wait(random.uniform(1.0, 3.0)):
+                        return
 
     def _handpan_scheduler(self):
         """Handpan scheduler"""
-        time.sleep(10)
-        while True:
+        if self.stop_flag.wait(10):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.handpan_config.min_interval, 
                                      self.handpan_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -160,15 +162,18 @@ class MindfulnessBGMRPiZ2W:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 3.5))
+                    if self.stop_flag.wait(random.uniform(1.0, 3.5)):
+                        return
 
     def _crystal_bowl_scheduler(self):
         """Crystal singing bowl scheduler"""
-        time.sleep(8)
-        while True:
+        if self.stop_flag.wait(8):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.crystal_bowl_config.min_interval, 
                                      self.crystal_bowl_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             with self.lock:
                 # Select note from current chord
@@ -182,9 +187,10 @@ class MindfulnessBGMRPiZ2W:
 
     def _event_scheduler(self):
         """Schedule random events"""
-        while True:
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(MIN_EVENT_INTERVAL, MAX_EVENT_INTERVAL)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             events = [
                 self._change_sound_type,
@@ -198,15 +204,22 @@ class MindfulnessBGMRPiZ2W:
 
     def _change_sound_type(self):
         """Change sound type"""
-        with self.lock:
-            self.next_sound_type = SoundType.get_random_except(self.current_sound_type)
-            self.is_transitioning = True
-            self.fade_progress = 0.0
+        self._change(sound_type=True)
 
     def _change_chord(self):
         """Change chord"""
+        self._change(chord=True)
+
+    def _change(self, sound_type=False, chord=False):
+        """Start one crossfade to a new timbre and/or chord"""
         with self.lock:
-            self.next_chord = SynthesizerRPiZ2W.create_chord()
+            if not self._ready_for_change():
+                return
+            if sound_type:
+                self.next_sound_type = SoundType.get_random_except(self.current_sound_type)
+                self.next_sound_start_frame = self.phase
+            if chord:
+                self.next_chord = SynthesizerRPiZ2W.create_chord()
             self.is_transitioning = True
             self.fade_progress = 0.0
 
@@ -219,42 +232,17 @@ class MindfulnessBGMRPiZ2W:
 
     def _change_both(self):
         """Change both sound type and chord"""
-        self._change_sound_type()
-        self._change_chord()
-
-    def _update_transitions(self, frames: int):
-        """Update volume and fade transitions"""
-        with self.lock:
-            # Volume transition
-            if self.current_volume != self.target_volume:
-                if abs(self.current_volume - self.target_volume) < 0.01:
-                    self.current_volume = self.target_volume
-                else:
-                    direction = 1 if self.target_volume > self.current_volume else -1
-                    self.current_volume += direction * self.volume_transition_speed * frames
-                    self.current_volume = np.clip(self.current_volume, 0.3, 0.8)
-            
-            # Fade processing
-            if self.is_transitioning:
-                self.fade_progress += frames / (FADE_TIME * self.sample_rate)
-                if self.fade_progress >= 1.0:
-                    self.fade_progress = 1.0
-                    self.is_transitioning = False
-                    if self.next_sound_type:
-                        self.current_sound_type = self.next_sound_type
-                        self.next_sound_type = None
-                    if self.next_chord:
-                        self.chord = self.next_chord
-                        self.next_chord = None
+        self._change(sound_type=True, chord=True)
 
     def _generate_chord_wave(self, t: np.ndarray) -> np.ndarray:
         """Generate current chord with sound type"""
+        envelope_t = (np.arange(len(t)) + self.phase - self.sound_start_frame) / self.sample_rate
         current_wave = np.zeros(len(t))
         
         for i, freq in enumerate(self.chord):
             # Add slightly different timing to each voice
             t_offset = t + i * 0.001
-            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type)
+            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type, envelope_t=envelope_t)
             current_wave += tone
         
         # Normalize by number of voices
@@ -262,25 +250,31 @@ class MindfulnessBGMRPiZ2W:
         
         # Handle transition if needed
         if self.is_transitioning:
+            next_start = self.next_sound_start_frame if self.next_sound_type else self.sound_start_frame
+            next_envelope_t = (np.arange(len(t)) + self.phase - next_start) / self.sample_rate
             next_wave = np.zeros(len(t))
             next_chord = self.next_chord if self.next_chord else self.chord
             next_type = self.next_sound_type if self.next_sound_type else self.current_sound_type
             
             for i, freq in enumerate(next_chord):
                 t_offset = t + i * 0.001
-                tone = self.synthesizer.generate_tone(freq, t_offset, next_type)
+                tone = self.synthesizer.generate_tone(freq, t_offset, next_type, envelope_t=next_envelope_t)
                 next_wave += tone
             
             next_wave /= len(next_chord)
             
-            # Smooth crossfade
-            alpha = self.fade_progress
+            # Smooth crossfade, interpolated sample by sample
+            alpha = self._crossfade_amount(len(t))
             current_wave = (1 - alpha) * current_wave + alpha * next_wave
         
         return current_wave
 
     def callback(self, outdata, frames, time_info, status):
         """Audio callback"""
+        with self.lock:
+            self._render_audio(outdata, frames)
+
+    def _render_audio(self, outdata, frames):
         t = (np.arange(frames) + self.phase) / self.sample_rate
         
         # Update transitions
@@ -298,15 +292,8 @@ class MindfulnessBGMRPiZ2W:
         # Generate chord
         current_wave = self._generate_chord_wave(t)
         
-        # Apply breathing rhythm
-        self.breath_phase += frames / self.sample_rate
-        breath_lfo = 0.97 + 0.03 * np.sin(2 * np.pi * BREATH_CYCLE * self.breath_phase)
-        
-        # Main LFO (slow modulation)
-        lfo = 1.0 + 0.02 * np.sin(2 * np.pi * LFO_FREQ * t)
-        
-        # Apply LFO and volume
-        current_wave *= breath_lfo * lfo * self.current_volume
+        # Breathing rhythm, main LFO (slow modulation) and volume, per sample
+        current_wave *= self._level_envelope(frames, BREATH_CYCLE) * (1.0 + 0.02 * np.sin(2 * np.pi * LFO_FREQ * t))
         
         # Apply reverb
         current_wave = self.effects.apply_reverb(current_wave)
@@ -315,7 +302,7 @@ class MindfulnessBGMRPiZ2W:
         if self.ambient_ratio > 0:
             # Dynamic scaling based on ambient_ratio
             instrument_scale = 1.0 - (self.ambient_ratio * 0.7)
-            ambient_scale = 1.0 + (self.ambient_ratio * 1.0)
+            ambient_scale = 1.0
             
             sig = current_wave * instrument_scale + nature_sounds * self.ambient_ratio * ambient_scale
         else:

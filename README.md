@@ -1,5 +1,7 @@
 # Mindfulness BGM Generator
 
+English | [日本語](README.ja.md)
+
 Dynamic ambient music generator designed for meditation and mindfulness practices. Creates continuous, evolving soundscapes with harmonious chords, natural ambient sounds, and traditional meditation instruments.
 
 ## Overview
@@ -48,18 +50,18 @@ This application provides a real-time audio generation system that creates conti
 ```bash
 .
 ├── README.md                 # This file
+├── README.ja.md              # Japanese user guide
 ├── requirements.txt          # Python dependencies
-├── packages.txt              # System-level dependencies
 ├── main.py                   # Command-line version
-├── app.py                    # Streamlit web interface
+├── app.py                    # PyQt6 desktop interface
 ├── main_rpiz2w.py            # Raspberry Pi Zero 2W optimized version
 └── src/                      # Source code modules
     ├── __init__.py
     ├── config.py             # High-quality audio settings
+    ├── i18n.py               # Japanese GUI translations (English source messages)
     ├── config_rpiz2w.py      # RPi Zero 2W optimized settings
     ├── generator.py          # Main BGM generator class
     ├── generator_rpiz2w.py   # RPi optimized generator
-    ├── generator_streamlit.py # Streamlit-compatible generator
     ├── synthesizer.py        # Sound synthesis functions
     ├── synthesizer_rpiz2w.py # RPi optimized synthesizer
     ├── sound_types.py        # Sound type definitions
@@ -75,7 +77,7 @@ This application provides a real-time audio generation system that creates conti
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+ (validated on Windows with Python 3.14)
 - Audio output device
 - 4GB RAM (recommended)
 - Dual-core CPU (minimum)
@@ -85,8 +87,7 @@ This application provides a real-time audio generation system that creates conti
 ```python
 numpy        # Numerical computing
 sounddevice  # Audio I/O
-streamlit    # Web application framework (for app.py)
-pyaudio      # Audio I/O (optional, for some systems)
+PyQt6        # Desktop GUI (for app.py)
 ```
 
 ## Installation
@@ -115,17 +116,13 @@ brew install portaudio
 
 #### Windows
 
-For Windows users, PyAudio installation may require additional steps:
-
-```bash
-pip install pipwin
-pipwin install pyaudio
-```
+The `sounddevice` Windows package includes PortAudio. PyAudio and pipwin are
+not needed by this application.
 
 ### 3. Install Python Dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Usage
@@ -153,7 +150,9 @@ python main.py
 | `--chord-variety` | Chord variety level | `normal` | `--chord-variety extended` |
 | `--progression-style` | Chord progression style | `circle-of-fifths` | `--progression-style modal` |
 | `--session-evolution` | Enable session evolution | `True` | `--session-evolution` |
-| `--binaural-enhancement` | Enable binaural enhancements | `True` | `--binaural-enhancement` |
+| `--binaural-enhancement` | Enable subtle stereo detuning | `True` | `--binaural-enhancement` |
+| `--no-session-evolution` | Disable session evolution | — | `--no-session-evolution` |
+| `--no-binaural-enhancement` | Disable stereo detuning | — | `--no-binaural-enhancement` |
 
 #### Usage Examples
 
@@ -205,20 +204,80 @@ Modal progression with binaural enhancement:
 python main.py --progression-style modal --binaural-enhancement
 ```
 
-### Web Interface (app.py)
+### Desktop Interface (app.py / PyQt6)
 
-Run the Streamlit application:
+The GUI is a native desktop window. Audio plays on the selected local output
+device. A browser or a web server is not required.
 
-```bash
-streamlit run app.py
+On Windows PowerShell:
+
+```powershell
+cd Mindfulness-BGM-Generator
+.\.venv\Scripts\python.exe app.py
 ```
 
-The web app provides:
+For a fresh checkout, create the environment first:
 
-- Start/Stop controls
-- Instrument selection dropdown
-- Ambient sound mix slider
-- Advanced settings for instrument intervals
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+The interface opens in English on first launch. Use **Language** at the top
+of the window to switch between **English** and **日本語**. Your selection is
+saved for the next launch. You can switch during playback without changing
+the sound settings or restarting the session. Labels, presets, descriptions,
+status messages, and application error dialogs follow the selected language;
+device names and technical error details are supplied by the audio system.
+
+The desktop opens in **Incense & Stillness** with the **Incense & Stillness** preset:
+a steady, quiet low open fifth, no percussion, no ocean noise, and no stereo
+detuning. The pitch never changes, but the sound is alive, like incense smoke:
+
+- The low fifth (110/165 Hz) is voiced with soft harmonics that each swell and
+  thin on their own slow, unsynchronised 20–90 second cycles, and the fifth is
+  detuned by 0.08 Hz so coinciding harmonics beat slowly, like a rin's ring.
+  The harmonics also keep it audible on laptop and small speakers that cannot
+  reproduce the low fundamental.
+- Every few minutes the tone recedes over 40 seconds to near-silence, rests
+  there for 20–60 seconds, and returns: a space for the stillness itself.
+- A rin (660 Hz) opens the sitting; a timed sitting closes with another as the
+  sound fades, and ends once its ring has died away.
+
+Four presets are available:
+
+- **Incense & Stillness** (線香と静坐): a steady low background tone for sitting quietly.
+- **Sitting with Resonance** (余韻に座る): the same steady bed with a crystal bowl at 90–150 second intervals.
+- **Distant Shore** (遠い水辺): a small amount of softened ocean texture behind the steady tone.
+- **Shō Resonance** (笙のひびき): in place of the low tone, a voice inspired by the shō (the
+  gagaku mouth organ): sustained reed clusters around 440–1320 Hz built from
+  A B D E F# (inspired by, not reproducing, the historical aitake). Each pipe is
+  detuned by up to 2 cents for a shimmer, the sound swells with a 12-second
+  breath, and every 25–45 seconds the cluster shifts one pipe at a time, like
+  te-utsuri. The rin and the spaces of near-silence are the same as above.
+
+Choose 15, 20, 30, or 60 minutes, or an untimed session. Playback enters over
+8 seconds; a timed session fades out over its final 20 seconds, then stops
+without an alarm. These are app timers, independent of incense burn time.
+The settings disappear while playing, leaving a still, uncluttered view.
+The volume control applies to the entire mix. Fine adjustments are available
+under the optional advanced settings; changing the sound settings selects the
+custom profile and restores the usual generative behavior.
+
+The bilingual interface provides:
+
+- Begin and End controls, with cleanup when the window closes
+- Meditation presets, a session timer, and a master volume control
+- Instrument selection, including Random and No Percussion
+- Output device selection and device refresh
+- Ocean ambient sound mix (0–100%)
+- Harmonic modulation, richness, chord variety, and progression settings
+- Session evolution and stereo detuning switches
+- Minimum and maximum intervals for each instrument (minimum 0 disables it)
+
+Settings are locked during playback. Stop playback to change them. If a device
+fails to open or playback is interrupted, the GUI shows an error and returns
+to its stopped state.
 
 ### Raspberry Pi Zero 2W Version (main_rpiz2w.py)
 
@@ -232,16 +291,19 @@ This version features:
 
 - Lower memory footprint
 - Optimized audio processing
-- Same command-line options as main.py
+- Basic instrument and ambient options; enhanced harmonic options are available in main.py only
 
 ## Technical Details
 
 ### Audio Processing
 
 - Sample Rate: 16kHz (optimized) / 48kHz (standard)
-- Buffer Size: 1024 frames
+- Buffer Size: 1024 frames (optimized) / 2048 frames (standard)
 - Channels: Stereo
 - Output Format: Float32
+- Output Level: default settings average about -20 dBFS RMS with peaks below
+  -6 dBFS at full volume, so the limiter only catches unusual peaks; the quiet
+  presets sit a few dB lower
 
 ### Musical Elements
 
@@ -295,15 +357,39 @@ This version features:
 
 3. **Installation Errors**
    - Ensure all system dependencies are installed
-   - Try installing PyAudio separately
    - Check Python version compatibility
 
-4. **Streamlit App Issues**
-   - Ensure Streamlit is properly installed
-   - Check port availability (default: 8501)
-   - Try: `streamlit run app.py --server.port 8080`
+4. **Desktop GUI Issues**
+   - Install dependencies in the same environment used to run `app.py`.
+   - Click the output device refresh button after connecting a device.
+   - Choose an output device that supports stereo at 48 kHz.
+
+## Validation
+
+Run the regression checks without opening an audio device:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+The checks cover worker cleanup, desktop start/stop, window close, and device failure, zero and
+invalid intervals, late sound changes, finite stereo output, real channel
+detuning, ocean frequency content, and filter/delay continuity between blocks.
+They also check that percussion envelopes do not depend on the audio block size,
+that no partial aliases above the Nyquist frequency, that every drone timbre stays
+audible, and that a modulation lands on the root its bridge chord prepared.
+Percussion re-strikes ring over earlier notes (the oldest voice fades rather than
+being cut), and the percussion level control and limiter change gain smoothly
+within each block instead of stepping between blocks.
+Listening quality and Raspberry Pi hardware performance require device testing.
 
 ## Version History
+
+- v1.8.0 - Add quiet incense/sitting presets, session timing, soft entry and timed exit, master volume, warm colors, and an uncluttered sitting view.
+
+- v1.7.0 - Replace the Streamlit interface with a Japanese PyQt6 desktop GUI, output selection, harmonic controls, and playback interruption handling.
+
+- v1.6.1 - Fix duplicate Web schedulers and stop cleanup, reset sound envelopes on sound changes, validate intervals, add disable flags, generate actual stereo detuning, and replace sub-audible ocean output with colored noise.
 
 - v1.0.0 - Initial release with basic features
 - v1.1.0 - Added Crystal Singing Bowl instrument

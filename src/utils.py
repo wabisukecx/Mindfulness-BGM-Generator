@@ -3,6 +3,7 @@ Utility functions for Mindfulness BGM Generator
 """
 
 from typing import Tuple
+import math
 
 
 def parse_instrument_interval(value: str) -> Tuple[float, float]:
@@ -15,15 +16,18 @@ def parse_instrument_interval(value: str) -> Tuple[float, float]:
     Returns:
         Tuple of (min_interval, max_interval)
     """
-    if value == "0":
-        return 0, 0
-    
-    if "-" in value:
-        min_val, max_val = value.split("-")
-        return float(min_val), float(max_val)
-    else:
-        val = float(value)
-        return val * 0.8, val * 1.2
+    value = value.strip()
+    try:
+        if "-" in value:
+            low, high = map(float, value.split("-"))
+        else:
+            val = float(value)
+            low, high = val * 0.8, val * 1.2
+    except ValueError as exc:
+        raise ValueError("Use a nonnegative interval or min-max range") from exc
+    if not all(math.isfinite(v) for v in (low, high)) or low < 0 or high < low:
+        raise ValueError("Intervals must be finite and satisfy 0 <= min <= max")
+    return low, high
 
 
 def parse_ambient_value(value: str) -> float:
@@ -37,6 +41,8 @@ def parse_ambient_value(value: str) -> float:
         Float value between 0.0 and 1.0
     """
     val = float(value)
+    if not math.isfinite(val):
+        raise ValueError("Ambient ratio must be finite")
     return max(0.0, min(1.0, val))
 
 

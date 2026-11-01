@@ -8,7 +8,7 @@ import numpy as np
 # Audio settings - Optimized for RPi Zero 2 W
 SAMPLE_RATE = 16000        # Hz - Lower sample rate
 BUFFER_FRAMES = 1024       # Buffer size - Smaller buffer
-VOLUME = 0.12              # Overall volume
+VOLUME = 0.85              # Overall volume: default RMS near -20 dBFS
 
 # Event interval settings
 MIN_EVENT_INTERVAL = 5.0   # Minimum event interval (seconds)

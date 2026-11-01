@@ -7,7 +7,7 @@ import numpy as np
 # Audio settings - High Quality
 SAMPLE_RATE = 48000        # Hz - CD quality or higher
 BUFFER_FRAMES = 2048       # Buffer size - larger for noise prevention
-VOLUME = 0.10              # Overall volume
+VOLUME = 0.70              # Overall volume: default RMS near -20 dBFS, peaks below the limiter
 
 # Event interval settings
 MIN_EVENT_INTERVAL = 5.0   # Minimum event interval (seconds)
@@ -45,6 +45,7 @@ STEREO_MIX_2 = 0.04  # Secondary stereo mix ratio
 LIMITER_THRESHOLD = 0.5   # Tanh threshold (lowered)
 LIMITER_CEILING = 0.85    # Output ceiling (lowered)
 LIMITER_KNEE = 0.1        # Soft knee range
+LIMITER_RELEASE = 0.5     # Seconds for the limiter gain to recover by 1.0
 
 # Headroom management
 HEADROOM_DB = -3.0        # Headroom in decibels

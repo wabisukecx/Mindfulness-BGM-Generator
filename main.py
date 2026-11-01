@@ -4,14 +4,13 @@ Mindfulness BGM Generator - Main Entry Point
 Enhanced Version with Extended Harmonic Progression and Chord Variations
 """
 
-import sounddevice as sd
 import time
 import random
 import argparse
 
-from src.config import SAMPLE_RATE, BUFFER_FRAMES, DEFAULT_AMBIENT_RATIO
+from src.config import DEFAULT_AMBIENT_RATIO
 from src.instruments_base import InstrumentConfig
-from src.generator import MindfulnessBGM
+from src.playback import Playback
 from src.utils import parse_instrument_interval, parse_ambient_value
 
 
@@ -48,6 +47,10 @@ def parse_arguments():
     parser.add_argument("--binaural-enhancement", action="store_true", default=True,
                       help="Enhance stereo field with subtle binaural-inspired frequency differences")
     
+    parser.add_argument("--no-session-evolution", action="store_false", dest="session_evolution",
+                        help="Disable session evolution")
+    parser.add_argument("--no-binaural-enhancement", action="store_false", dest="binaural_enhancement",
+                        help="Disable stereo frequency differences")
     return parser.parse_args()
 
 
@@ -177,8 +180,23 @@ def display_settings(instrument_configs, ambient_ratio, modulation_mode, harmoni
     print("\nPress Ctrl+C to stop.")
 
 
+def wait_until_stopped(player, poll_seconds=0.5):
+    """Wait while audio plays; return an error message if the device stops."""
+    while True:
+        time.sleep(poll_seconds)
+        if player.error:
+            return player.error
+        try:
+            active = player.stream.active
+        except Exception:
+            active = False
+        if not active:
+            return "The audio output stopped. Check the audio device connection."
+
+
 def main():
     """Main entry point with enhanced harmonic options"""
+    player = Playback()
     try:
         # Parse command line arguments
         args = parse_arguments()
@@ -195,33 +213,19 @@ def main():
         # Display settings
         display_settings(instrument_configs, ambient_ratio, args.modulation_mode, harmonic_config)
         
-        # Configure audio device
-        sd.default.samplerate = SAMPLE_RATE
-        sd.default.blocksize = BUFFER_FRAMES
-        sd.default.channels = 2
-        
-        # Create generator with enhanced options
-        generator = MindfulnessBGM(
-            instrument_configs['bell'],
-            instrument_configs['drum'],
-            instrument_configs['handpan'],
-            instrument_configs['crystal_bowl'],
-            ambient_ratio,
-            modulation_mode=args.modulation_mode,
-            harmonic_richness=harmonic_config['harmonic_richness'],
-            chord_variety=harmonic_config['chord_variety'],
-            progression_style=harmonic_config['progression_style'],
-            session_evolution=harmonic_config['session_evolution'],
-            binaural_enhancement=harmonic_config['binaural_enhancement']
-        )
-        
-        # Start audio stream
-        with sd.OutputStream(callback=generator.callback):
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                print("\nGracefully stopping...")
+        # Start audio through the same player the desktop app uses
+        intervals = {key: (config.min_interval, config.max_interval)
+                     for key, config in instrument_configs.items()}
+        player.start(selected_instrument.replace('-', '_'), intervals, ambient_ratio,
+                     modulation_mode=args.modulation_mode, **harmonic_config)
+        try:
+            error = wait_until_stopped(player)
+        except KeyboardInterrupt:
+            print("\nGracefully stopping...")
+            player.stop_gracefully()
+            return 0
+        print(f"\nPlayback interrupted: {error}")
+        return 1
                 
     except ValueError as e:
         print(f"Error: {e}")
@@ -230,7 +234,8 @@ def main():
         print(f"Unexpected error: {e}")
         return 1
     
-    return 0
+    finally:
+        player.stop()
 
 
 if __name__ == "__main__":

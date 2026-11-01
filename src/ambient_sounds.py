@@ -1,86 +1,48 @@
-"""
-Ambient sound generation for Mindfulness BGM Generator
-"""
+"""Audible ocean texture: slow wave envelopes modulate colored noise."""
 
 import numpy as np
 
 
 class AmbientSoundGenerator:
-    """Generate ambient nature sounds"""
-    
     def __init__(self, sample_rate: int):
         self.sample_rate = sample_rate
         self.ocean_phase = np.random.uniform(0, 2*np.pi)
         self.ocean_variation = np.random.uniform(0.8, 1.2)
-        self.noise_state = 0.0
-    
+        self.noise_state = 0
+        self.filter_state = 0.0
+        self.foam_filter_state = 0.0
+
     def generate_ocean_waves(self, t: np.ndarray, frames: int) -> np.ndarray:
-        """Generate high quality ocean wave sounds"""
-        t_ocean = t + self.ocean_phase
-        var = self.ocean_variation
-        
-        # Main wave rhythm (emphasize sine wave components)
-        wave1 = np.sin(2 * np.pi * 0.08 * var * t_ocean) * 0.8
-        wave2 = np.sin(2 * np.pi * 0.06 * var * t_ocean + np.pi/3) * 0.7
-        wave3 = np.sin(2 * np.pi * 0.04 * var * t_ocean + np.pi/6) * 0.6
-        wave4 = np.sin(2 * np.pi * 0.03 * var * t_ocean + np.pi/4) * 0.5
-        
-        # High quality - additional wave components
-        wave5 = np.sin(2 * np.pi * 0.05 * var * t_ocean + np.pi/5) * 0.4
-        wave6 = np.sin(2 * np.pi * 0.025 * var * t_ocean + np.pi/7) * 0.3
-        
-        # Wave swells (smoother)
-        swell = 0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * var * t_ocean)
-        main_waves = (wave1 + wave2 + wave3 + wave4 + wave5 + wave6) * swell
-        
-        # Breaking wave sounds (greatly reduced noise)
-        breaking_trigger = np.sin(2 * np.pi * 0.05 * var * t_ocean)
-        breaking_envelope = np.maximum(0, breaking_trigger) ** 2
-        
-        # Minimal noise component
-        breaking_noise = np.random.randn(frames) * 0.05
-        # Light low-pass filter
-        for i in range(1, frames):
-            breaking_noise[i] = 0.7 * breaking_noise[i-1] + 0.3 * breaking_noise[i]
-        
-        breaking_waves = breaking_noise * breaking_envelope * 0.3
-        
-        # Deep wave sounds (sine wave based) - Enhanced
-        deep_waves = np.sin(2 * np.pi * 0.015 * t_ocean) * 0.5
-        deep_waves += np.sin(2 * np.pi * 0.01 * t_ocean + np.pi/2) * 0.4
-        deep_waves += np.sin(2 * np.pi * 0.007 * t_ocean + np.pi/3) * 0.3
-        deep_waves += np.sin(2 * np.pi * 0.005 * t_ocean + np.pi/4) * 0.2
-        deep_waves += np.sin(2 * np.pi * 0.003 * t_ocean + np.pi/5) * 0.15
-        
-        # Wave receding sounds (minimal noise)
-        wash_envelope = 0.5 + 0.5 * np.sin(2 * np.pi * 0.03 * t_ocean + np.pi)
-        wash_sound = np.sin(2 * np.pi * 0.025 * t_ocean) * wash_envelope * 0.3
-        
-        # Clean synthesis
-        ocean_sound = main_waves + breaking_waves + deep_waves + wash_sound
-        
-        # Light smoothing
-        for i in range(1, frames):
-            ocean_sound[i] = 0.5 * ocean_sound[i-1] + 0.5 * ocean_sound[i]
-            
-        return ocean_sound
-    
+        phase = self.ocean_phase
+        # A shorter arrival and longer retreat, with smooth, quiet troughs.
+        cycle = (0.075*self.ocean_variation*t + phase/(2*np.pi)) % 1.0
+        shape = np.where(cycle < 0.3, cycle/0.3, (1.0-cycle)/0.7)
+        swell = shape*shape*(3.0-2.0*shape)
+        wash = 0.75 + 0.25 * np.sin(2*np.pi*0.027*t + phase)
+        noise = np.random.randn(frames)
+        colored = np.empty(frames)
+        foam = np.empty(frames)
+        # A sample-rate-independent low-pass filter with continuous block state.
+        pole = np.exp(-2*np.pi*650/self.sample_rate)
+        foam_pole = np.exp(-2*np.pi*1800/self.sample_rate)
+        state = self.filter_state
+        foam_state = self.foam_filter_state
+        for i, sample in enumerate(noise):
+            state = pole * state + (1-pole) * sample
+            foam_state = foam_pole * foam_state + (1-foam_pole) * sample
+            colored[i] = state
+            foam[i] = foam_state
+        self.filter_state = state
+        self.foam_filter_state = foam_state
+        colored *= np.sqrt((1+pole)/(1-pole))
+        foam *= np.sqrt((1+foam_pole)/(1-foam_pole))
+        # Sub-audible oscillators are envelopes, never added to the audio signal.
+        return (colored * (0.018 + 0.05*swell) + foam * 0.006*swell**2) * wash
+
     def generate_nature_sounds(self, frames: int, ambient_ratio: float) -> np.ndarray:
-        """Generate cleaner natural sounds with minimal noise"""
         if ambient_ratio == 0:
             return np.zeros(frames)
-        
         t = (np.arange(frames) + self.noise_state) / self.sample_rate
-        
-        # Generate only clean ocean sounds
-        ocean = self.generate_ocean_waves(t, frames)
-        
-        # Return wave sounds as is
-        nature_mix = ocean
-        
-        # Final smoothing (noise removal)
-        for i in range(1, frames):
-            nature_mix[i] = 0.7 * nature_mix[i-1] + 0.3 * nature_mix[i]
-        
+        result = self.generate_ocean_waves(t, frames)
         self.noise_state += frames
-        return nature_mix * 1.5  # Adjust base volume
+        return result

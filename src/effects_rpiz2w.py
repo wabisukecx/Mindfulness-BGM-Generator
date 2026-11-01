@@ -15,7 +15,8 @@ class AudioEffectsRPiZ2W:
         # Reverb buffer (smaller for RPi Zero 2 W)
         self.reverb_buffer = np.zeros(int(self.sample_rate * REVERB_TIME))
         self.reverb_index = 0
-    
+        self.stereo_history = np.zeros(0)
+
     def apply_reverb(self, signal: np.ndarray) -> np.ndarray:
         """Simple reverb effect"""
         output = np.copy(signal)
@@ -33,9 +34,19 @@ class AudioEffectsRPiZ2W:
         """Apply soft limiting to prevent clipping"""
         return np.tanh(signal * 0.8) * 0.9
     
-    @staticmethod
-    def create_stereo(signal: np.ndarray, delay: int = 2, mix: float = 0.05) -> np.ndarray:
-        """Simple stereo effect"""
-        sig_left = signal + np.roll(signal, delay) * mix
-        sig_right = signal + np.roll(signal, -delay) * mix
+    def create_stereo(self, signal: np.ndarray, delay: int = 2, mix: float = 0.05) -> np.ndarray:
+        """Simple stereo effect with delay history kept across blocks.
+
+        Left hears a slightly delayed copy; right hears the direct sound
+        delayed by the same amount with an undelayed copy, which keeps the
+        original left/right timing without reading future samples.
+        """
+        if len(self.stereo_history) != delay:
+            self.stereo_history = np.zeros(delay)
+        source = np.concatenate([self.stereo_history, signal])
+        delayed = source[:len(signal)]
+        if delay:
+            self.stereo_history = source[-delay:].copy()
+        sig_left = signal + delayed * mix
+        sig_right = delayed + signal * mix
         return np.column_stack([sig_left, sig_right])

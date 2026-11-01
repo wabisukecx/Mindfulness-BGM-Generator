@@ -131,29 +131,17 @@ class CrystalSingingBowl(BaseInstrument):
             
         t = (np.arange(frames) + self.crystal_phase) / self.sample_rate
         
-        # Centered frequency modulation - very subtle
-        fm_depth1 = 0.0001
-        fm_depth2 = 0.00005
-        fm_freq1 = 0.2
-        fm_freq2 = 0.5
-        
-        # Centered modulation around base frequency
-        freq_mod1 = np.sin(2 * np.pi * fm_freq1 * t) * fm_depth1
-        freq_mod2 = np.sin(2 * np.pi * fm_freq2 * t + self.rubbing_phase) * fm_depth2
-        freq_final = self.current_freq * (1 + freq_mod1 + freq_mod2)
-        
-        # Pure fundamental
-        fundamental = np.sin(2 * np.pi * freq_final * t)
-        
+        # Pure fundamental with a very subtle, centered vibrato
+        fundamental = np.sin(self._bowl_fm_phase(self.current_freq, t, self.rubbing_phase))
+
         # Very subtle harmonics
-        second = np.sin(2 * np.pi * self.current_freq * 2 * t + np.pi/4) * 0.02
-        third = np.sin(2 * np.pi * self.current_freq * 3 * t + np.pi/3) * 0.01
-        fourth = np.sin(2 * np.pi * self.current_freq * 4 * t + np.pi/5) * 0.008
-        fifth = np.sin(2 * np.pi * self.current_freq * 5 * t + np.pi/6) * 0.005
-        
+        second = self._partial(self.current_freq * 2, t, np.pi/4) * 0.02
+        third = self._partial(self.current_freq * 3, t, np.pi/3) * 0.01
+        fourth = self._partial(self.current_freq * 4, t, np.pi/5) * 0.008
+        fifth = self._partial(self.current_freq * 5, t, np.pi/6) * 0.005
+
         # Ring modulation for crystalline quality
-        ring_freq = self.current_freq * 7.1
-        ring = np.sin(2 * np.pi * ring_freq * t) * 0.005
+        ring = self._partial(self.current_freq * 7.1, t) * 0.005
         
         # Centered amplitude modulation
         am_depth1 = 0.005
@@ -163,9 +151,9 @@ class CrystalSingingBowl(BaseInstrument):
         amplitude_mod = 1 + am_depth1 * np.sin(2 * np.pi * am_freq1 * t)
         amplitude_mod += am_depth2 * np.sin(2 * np.pi * am_freq2 * t + np.pi/2)
         
-        # Time-based envelope
-        t_fade = t + self.crystal_phase / self.sample_rate
-        
+        # Time-based envelope (t already counts from the strike)
+        t_fade = t
+
         rub_attack = 1 - np.exp(-2 * t_fade)
         strike_attack = np.exp(-20 * t_fade)
         decay = np.exp(-0.4 * t_fade)
@@ -224,16 +212,16 @@ class TibetanBell(BaseInstrument):
         f5 = self.current_freq * 3.98  # Additional inharmonic
         f6 = self.current_freq * 6.51  # Higher partial
         
-        # Bell sound components
-        wave1 = np.sin(2 * np.pi * f1 * t)
-        wave2 = np.sin(2 * np.pi * f2 * t) * 0.8
-        wave3 = np.sin(2 * np.pi * f3 * t) * 0.3
-        wave4 = np.sin(2 * np.pi * f4 * t) * 0.1
-        wave5 = np.sin(2 * np.pi * f5 * t) * 0.05
-        wave6 = np.sin(2 * np.pi * f6 * t) * 0.03
-        
-        # Time-based envelope
-        t_fade = t + self.bell_phase / self.sample_rate
+        # Bell sound components (partials above Nyquist are dropped)
+        wave1 = self._partial(f1, t)
+        wave2 = self._partial(f2, t) * 0.8
+        wave3 = self._partial(f3, t) * 0.3
+        wave4 = self._partial(f4, t) * 0.1
+        wave5 = self._partial(f5, t) * 0.05
+        wave6 = self._partial(f6, t) * 0.03
+
+        # Time-based envelope (t already counts from the strike)
+        t_fade = t
         
         attack = np.exp(-100 * t_fade)
         decay1 = np.exp(-5 * t_fade)

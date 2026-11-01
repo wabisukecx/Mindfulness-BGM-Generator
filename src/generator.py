@@ -10,14 +10,19 @@ import random
 
 from src.config import *
 from src.sound_types import SoundType
-from src.instruments_base import InstrumentConfig
+from src.instruments_base import InstrumentConfig, VoicePool
 from src.instruments import TibetanBell, SlitDrum, Handpan, CrystalSingingBowl
 from src.synthesizer import Synthesizer
 from src.ambient_sounds import AmbientSoundGenerator
 from src.effects import AudioEffects
+from src.meditation import SmokeDrone, ShoVoice, BreathingSpace
 
 
-class MindfulnessBGM:
+from src.schedulers import SchedulerLifecycle
+from src.transitions import TransitionMixin
+
+
+class MindfulnessBGM(SchedulerLifecycle, TransitionMixin):
     """Dynamic mindfulness BGM generator class with enhanced harmonic features"""
     
     def __init__(self, bell_config: InstrumentConfig, drum_config: InstrumentConfig, 
@@ -25,10 +30,16 @@ class MindfulnessBGM:
                  ambient_ratio: float, modulation_mode: str = "balanced",
                  harmonic_richness: str = "normal", chord_variety: str = "normal",
                  progression_style: str = "circle-of-fifths", session_evolution: bool = False,
-                 binaural_enhancement: bool = False):
+                 binaural_enhancement: bool = False, auto_start: bool = True,
+                 meditation_mode: bool = False, meditation_voice: str = "drone"):
         self.sample_rate = SAMPLE_RATE
+        self.meditation_mode = meditation_mode
+        self.fade_time = 12.0 if meditation_mode else FADE_TIME
         self.phase = 0
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self._init_schedulers()
+        self.sound_start_frame = 0
+        self.next_sound_start_frame = 0
         
         # Sound type management
         self.current_sound_type = SoundType.PURE
@@ -47,6 +58,7 @@ class MindfulnessBGM:
         # Fade management
         self.fade_progress = 0.0
         self.is_transitioning = False
+        self._init_transitions()
         
         # Ambient sound settings
         self.ambient_ratio = ambient_ratio
@@ -64,17 +76,19 @@ class MindfulnessBGM:
         self.effects = AudioEffects(self.sample_rate)
         
         # Percussion instruments
-        self.tibetan_bell = TibetanBell(self.sample_rate)
-        self.slit_drum = SlitDrum(self.sample_rate)
-        self.handpan = Handpan(self.sample_rate)
-        self.crystal_bowl = CrystalSingingBowl(self.sample_rate)
+        self.tibetan_bell = VoicePool(TibetanBell, self.sample_rate)
+        self.slit_drum = VoicePool(SlitDrum, self.sample_rate)
+        self.handpan = VoicePool(Handpan, self.sample_rate)
+        self.crystal_bowl = VoicePool(CrystalSingingBowl, self.sample_rate)
         
         # Percussion configurations
         self.bell_config = bell_config
         self.drum_config = drum_config
         self.handpan_config = handpan_config
         self.crystal_bowl_config = crystal_bowl_config
-        
+        self.percussion_gain = 1.0
+        self.percussion_silent = True
+
         # Enhanced modulation system
         self.modulation_mode = modulation_mode
         self.modulation_chances = {
@@ -87,7 +101,8 @@ class MindfulnessBGM:
         self.current_root = self._extract_root(self.chord)
         self.preparation_chord = None
         self.is_preparing_modulation = False
-        self.session_start = time.time()
+        self.modulation_target = None  # Root announced by the bridge chord
+        self.session_start = time.monotonic()
         self.modulation_phase = 0
         
         # Parameters for session evolution
@@ -100,16 +115,28 @@ class MindfulnessBGM:
         
         # Set chord generation method before start
         if self.progression_style == "modal":
-            self.chord = self.synthesizer.create_modal_chord()
+            self.chord = self.synthesizer.create_modal_chord(mode=self.modulation_mode)
         elif self.progression_style == "pentatonic":
-            self.chord = self.synthesizer.create_pentatonic_chord()
+            self.chord = self.synthesizer.create_pentatonic_chord(mode=self.modulation_mode)
         else:
-            self.chord = self.synthesizer.create_chord(chord_variety=self.chord_variety)
+            self.chord = self.synthesizer.create_chord(mode=self.modulation_mode, chord_variety=self.chord_variety)
         
         self.current_root = self._extract_root(self.chord)
-        
+        if self.meditation_mode:
+            self.chord = [110.0, 165.0]
+            self.current_root = 110.0
+            self.current_volume = self.target_volume = 0.5
+            if meditation_voice == "sho":
+                self.drone = ShoVoice(self.sample_rate)
+            elif meditation_voice == "drone":
+                self.drone = SmokeDrone(self.chord, self.sample_rate)
+            else:
+                raise ValueError(f"Unknown meditation voice: {meditation_voice}")
+            self.space = BreathingSpace()
+
         # Start schedulers
-        self._start_schedulers()
+        if auto_start:
+            self.start()
     
     def _extract_root(self, chord):
         """Extract root note from chord"""
@@ -122,13 +149,8 @@ class MindfulnessBGM:
         if not self.binaural_enhancement:
             return 1.0
         
-        # Generate a very subtle frequency difference between left and right channels
-        # (Typical binaural beats have a difference of 1-40Hz, so use a more subtle 0.1-1Hz difference)
-        if channel == 0:  # Left channel
-            return 1.0 - random.uniform(0.0001, 0.0015)
-        else:  # Right channel
-            return 1.0 + random.uniform(0.0001, 0.0015)
-    
+        return 1.0 + (-0.0008 if channel == 0 else 0.0008)
+
     def _create_bridge_chord(self, current_root, target_root):
         """Create a transitional chord between two roots"""
         if current_root is None or target_root is None:
@@ -153,39 +175,21 @@ class MindfulnessBGM:
         
         return frequencies
     
-    def _start_schedulers(self):
-        """Start event and instrument schedulers"""
-        # Start event scheduler
-        threading.Thread(target=self._event_scheduler, daemon=True).start()
-        
-        # Start session evolution scheduler if enabled
-        if self.session_evolution:
-            threading.Thread(target=self._evolution_scheduler, daemon=True).start()
-        
-        # Conditionally start percussion schedulers
-        if self.bell_config.enabled:
-            threading.Thread(target=self._bell_scheduler, daemon=True).start()
-        if self.drum_config.enabled:
-            threading.Thread(target=self._drum_scheduler, daemon=True).start()
-        if self.handpan_config.enabled:
-            threading.Thread(target=self._handpan_scheduler, daemon=True).start()
-        if self.crystal_bowl_config.enabled:
-            threading.Thread(target=self._crystal_bowl_scheduler, daemon=True).start()
-    
     def _evolution_scheduler(self):
         """Session evolution scheduler - music slowly changes over time"""
         # Gradually changes over 30 minutes
         evolution_duration = 1800  # 30 minutes
         
-        start_time = time.time()
-        while True:
-            elapsed = time.time() - start_time
+        start_time = time.monotonic()
+        while not self.stop_flag.is_set():
+            elapsed = time.monotonic() - start_time
             
             # Calculate evolution progress (0.0 to 1.0)
             self.evolution_progress = min(1.0, elapsed / evolution_duration)
             
             # Wait at each evolution step (every 1%)
-            time.sleep(evolution_duration / 100)
+            if self.stop_flag.wait(evolution_duration / 100):
+                return
             
             # Stop when evolution is complete
             if self.evolution_progress >= 1.0:
@@ -193,10 +197,11 @@ class MindfulnessBGM:
     
     def _bell_scheduler(self):
         """Bell scheduler"""
-        while True:
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.bell_config.min_interval, 
                                      self.bell_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -214,15 +219,18 @@ class MindfulnessBGM:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 4.0))
+                    if self.stop_flag.wait(random.uniform(1.0, 4.0)):
+                        return
 
     def _drum_scheduler(self):
         """Slit drum scheduler"""
-        time.sleep(5)
-        while True:
+        if self.stop_flag.wait(5):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.drum_config.min_interval, 
                                      self.drum_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -240,15 +248,18 @@ class MindfulnessBGM:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 3.0))
+                    if self.stop_flag.wait(random.uniform(1.0, 3.0)):
+                        return
 
     def _handpan_scheduler(self):
         """Handpan scheduler"""
-        time.sleep(10)
-        while True:
+        if self.stop_flag.wait(10):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.handpan_config.min_interval, 
                                      self.handpan_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             # Strike 1-3 times
             num_strikes = random.randint(1, 3)
@@ -266,15 +277,18 @@ class MindfulnessBGM:
                 
                 # Interval between consecutive strikes
                 if i < num_strikes - 1:
-                    time.sleep(random.uniform(1.0, 3.5))
+                    if self.stop_flag.wait(random.uniform(1.0, 3.5)):
+                        return
 
     def _crystal_bowl_scheduler(self):
         """Crystal singing bowl scheduler"""
-        time.sleep(8)
-        while True:
+        if self.stop_flag.wait(8):
+            return
+        while not self.stop_flag.is_set():
             wait_time = random.uniform(self.crystal_bowl_config.min_interval, 
                                      self.crystal_bowl_config.max_interval)
-            time.sleep(wait_time)
+            if self.stop_flag.wait(wait_time):
+                return
             
             with self.lock:
                 # Select note from current chord
@@ -288,12 +302,20 @@ class MindfulnessBGM:
 
     def _event_scheduler(self):
         """Enhanced event scheduler with natural modulation patterns"""
-        while True:
-            wait_time = random.uniform(MIN_EVENT_INTERVAL, MAX_EVENT_INTERVAL)
-            time.sleep(wait_time)
+        while not self.stop_flag.is_set():
+            wait_time = (random.uniform(45.0, 90.0) if self.meditation_mode else
+                         random.uniform(MIN_EVENT_INTERVAL, MAX_EVENT_INTERVAL))
+            if self.stop_flag.wait(wait_time):
+                return
+            if self.meditation_mode:
+                # Keep the low open fifth steady; only a slow, small level drift.
+                with self.lock:
+                    self.target_volume = random.uniform(0.45, 0.55)
+                    self.volume_transition_speed = 1.0 / (random.uniform(20, 40) * self.sample_rate)
+                continue
             
             # Time-based modulation probability
-            elapsed = time.time() - self.session_start
+            elapsed = time.monotonic() - self.session_start
             
             # Wave-like pattern for modulation probability
             self.modulation_phase += 0.1
@@ -340,13 +362,18 @@ class MindfulnessBGM:
     def _change_sound_type(self):
         """Change sound type"""
         with self.lock:
+            if not self._ready_for_change():
+                return
             self.next_sound_type = SoundType.get_random_except(self.current_sound_type)
+            self.next_sound_start_frame = self.phase
             self.is_transitioning = True
             self.fade_progress = 0.0
 
     def _change_chord(self):
         """Enhanced chord change with smoother transitions and progression styles"""
         with self.lock:
+            if not self._ready_for_change():
+                return
             if not self.is_preparing_modulation and self.modulation_mode != "dynamic":
                 # Preparation stage: create bridge chord
                 if self.progression_style == "circle-of-fifths":
@@ -360,31 +387,39 @@ class MindfulnessBGM:
                 
                 self.preparation_chord = self._create_bridge_chord(self.current_root, new_root)
                 self.is_preparing_modulation = True
+                self.modulation_target = new_root
                 self.next_chord = self.preparation_chord
             else:
-                # Actual modulation or direct change for dynamic mode
+                # Actual modulation (to the root the bridge prepared, if any)
+                # or direct change for dynamic mode
+                target = self.modulation_target
                 if self.progression_style == "circle-of-fifths":
                     self.next_chord = self.synthesizer.create_chord(
                         previous_root=self.current_root,
                         mode=self.modulation_mode,
-                        chord_variety=self.chord_variety
+                        chord_variety=self.chord_variety,
+                        root=target
                     )
                 elif self.progression_style == "pentatonic":
                     self.next_chord = self.synthesizer.create_pentatonic_chord(
                         previous_root=self.current_root,
-                        mode=self.modulation_mode
+                        mode=self.modulation_mode,
+                        root=target
                     )
                 elif self.progression_style == "modal":
                     self.next_chord = self.synthesizer.create_modal_chord(
                         previous_root=self.current_root,
-                        mode=self.modulation_mode
+                        mode=self.modulation_mode,
+                        root=target
                     )
                 else:  # random
                     self.next_chord = self.synthesizer.create_chord(
-                        chord_variety=self.chord_variety
+                        chord_variety=self.chord_variety,
+                        root=target
                     )
                 
                 self.is_preparing_modulation = False
+                self.modulation_target = None
                 self.current_root = self._extract_root(self.next_chord)
                 
                 # Add to progression history
@@ -402,44 +437,20 @@ class MindfulnessBGM:
             duration = random.uniform(MIN_VOLUME_CHANGE_DURATION, MAX_VOLUME_CHANGE_DURATION)
             self.volume_transition_speed = 1.0 / (duration * self.sample_rate)
 
-    def _change_both(self):
-        """Change both sound type and chord"""
-        self._change_sound_type()
-        self._change_chord()
-
-    def _update_transitions(self, frames: int):
-        """Update volume and fade transitions"""
-        with self.lock:
-            # Volume transition
-            if self.current_volume != self.target_volume:
-                if abs(self.current_volume - self.target_volume) < 0.01:
-                    self.current_volume = self.target_volume
-                else:
-                    direction = 1 if self.target_volume > self.current_volume else -1
-                    self.current_volume += direction * self.volume_transition_speed * frames
-                    self.current_volume = np.clip(self.current_volume, 0.3, 0.8)
-            
-            # Fade processing
-            if self.is_transitioning:
-                self.fade_progress += frames / (FADE_TIME * self.sample_rate)
-                if self.fade_progress >= 1.0:
-                    self.fade_progress = 1.0
-                    self.is_transitioning = False
-                    if self.next_sound_type:
-                        self.current_sound_type = self.next_sound_type
-                        self.next_sound_type = None
-                    if self.next_chord:
-                        self.chord = self.next_chord
-                        self.next_chord = None
-
     def _generate_chord_wave(self, t: np.ndarray) -> np.ndarray:
         """Generate current chord with sound type"""
+        if self.meditation_mode:
+            # The quiet presets keep one chord; its timbre drifts like smoke
+            # and it recedes now and then into near-silence
+            return self.drone.render(t) * self.space.gain(t)
+        envelope_t = (np.arange(len(t)) + self.phase - self.sound_start_frame) / self.sample_rate
         current_wave = np.zeros(len(t))
         
         for i, freq in enumerate(self.chord):
             # Add slightly different timing to each voice (natural spread)
             t_offset = t + i * 0.001
-            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type, self.harmonic_richness)
+            tone = self.synthesizer.generate_tone(freq, t_offset, self.current_sound_type, self.harmonic_richness,
+                                                   envelope_t=envelope_t, sample_rate=self.sample_rate)
             current_wave += tone
         
         # Normalize by number of voices
@@ -447,25 +458,53 @@ class MindfulnessBGM:
         
         # Handle transition if needed
         if self.is_transitioning:
+            next_start = self.next_sound_start_frame if self.next_sound_type else self.sound_start_frame
+            next_envelope_t = (np.arange(len(t)) + self.phase - next_start) / self.sample_rate
             next_wave = np.zeros(len(t))
             next_chord = self.next_chord if self.next_chord else self.chord
             next_type = self.next_sound_type if self.next_sound_type else self.current_sound_type
             
             for i, freq in enumerate(next_chord):
                 t_offset = t + i * 0.001
-                tone = self.synthesizer.generate_tone(freq, t_offset, next_type, self.harmonic_richness)
+                tone = self.synthesizer.generate_tone(freq, t_offset, next_type, self.harmonic_richness,
+                                                       envelope_t=next_envelope_t, sample_rate=self.sample_rate)
                 next_wave += tone
             
             next_wave /= len(next_chord)
             
-            # Smooth crossfade
-            alpha = self.fade_progress
+            # Smooth crossfade, interpolated sample by sample
+            alpha = self._crossfade_amount(len(t))
             current_wave = (1 - alpha) * current_wave + alpha * next_wave
         
         return current_wave
 
+    def _percussion_gain(self, main_rms: float, perc_rms: float, frames: int) -> np.ndarray:
+        """Per-sample gain keeping percussion at about half the drone level.
+
+        The gain ramps within each block instead of stepping between blocks
+        (which clicks). While a sound rings it may only fall, so decays keep
+        their natural shape rather than being pulled back up; it recovers
+        only during silence, where the change is inaudible.
+        """
+        if perc_rms <= 0.001:
+            start, end = self.percussion_gain, 1.0
+            self.percussion_silent = True
+        else:
+            target = min(1.0, main_rms / (perc_rms * 2))
+            # An attack out of silence may take its gain at once: the
+            # preceding samples are effectively zero, so nothing clicks.
+            start = target if self.percussion_silent else self.percussion_gain
+            end = min(start, target)
+            self.percussion_silent = False
+        self.percussion_gain = end
+        return np.linspace(start, end, frames + 1)[1:]
+
     def callback(self, outdata, frames, time_info, status):
         """Audio callback with improved audio processing"""
+        with self.lock:
+            self._render_audio(outdata, frames)
+
+    def _render_audio(self, outdata, frames):
         t = (np.arange(frames) + self.phase) / self.sample_rate
         
         # Update transitions
@@ -481,17 +520,20 @@ class MindfulnessBGM:
         crystal_bowl_sound = self.crystal_bowl.generate(frames) * 0.9
         
         # Generate chord
-        current_wave = self._generate_chord_wave(t)
+        if self.binaural_enhancement:
+            current_wave = np.column_stack([
+                self._generate_chord_wave(t * self._get_binaural_factor(channel))
+                for channel in (0, 1)
+            ])
+            nature_sounds = nature_sounds[:, None]
+        else:
+            current_wave = self._generate_chord_wave(t)
         
-        # Apply breathing rhythm
-        self.breath_phase += frames / self.sample_rate
-        breath_lfo = 0.97 + 0.03 * np.sin(2 * np.pi * BREATH_CYCLE * self.breath_phase)
-        
-        # Main LFO (slow modulation)
-        lfo = 1.0 + 0.02 * np.sin(2 * np.pi * LFO_FREQ * t)
-        
-        # Apply LFO and volume
-        current_wave *= breath_lfo * lfo * self.current_volume
+        # Breathing rhythm, main LFO (slow modulation) and volume, per sample
+        envelope = self._level_envelope(frames, BREATH_CYCLE) * (1.0 + 0.02 * np.sin(2 * np.pi * LFO_FREQ * t))
+        if self.binaural_enhancement:
+            envelope = envelope[:, None]
+        current_wave *= envelope
         
         # Apply reverb
         current_wave = self.effects.apply_reverb(current_wave)
@@ -500,7 +542,7 @@ class MindfulnessBGM:
         if self.ambient_ratio > 0:
             # Dynamic scaling based on ambient_ratio
             instrument_scale = 1.0 - (self.ambient_ratio * 0.7)
-            ambient_scale = 1.0 + (self.ambient_ratio * 1.0)
+            ambient_scale = 1.0
             
             sig = current_wave * instrument_scale + nature_sounds * self.ambient_ratio * ambient_scale
         else:
@@ -508,16 +550,14 @@ class MindfulnessBGM:
         
         # Add percussion sounds with automatic gain compensation
         percussion_mix = bell_sound + drum_sound + handpan_sound + crystal_bowl_sound
-        
-        # RMS-based automatic gain control
+
+        # RMS-based automatic gain control, applied sample by sample
         main_rms = np.sqrt(np.mean(sig ** 2)) if len(sig) > 0 else 0.001
         perc_rms = np.sqrt(np.mean(percussion_mix ** 2)) if len(percussion_mix) > 0 else 0.001
-        
-        # Automatically adjust percussion level
-        if perc_rms > 0.001:  # Avoid division by zero
-            perc_scale = min(1.0, main_rms / (perc_rms * 2))  # About half of main
-            percussion_mix *= perc_scale
-        
+        percussion_mix = percussion_mix * self._percussion_gain(main_rms, perc_rms, frames)
+        if self.binaural_enhancement:
+            percussion_mix = percussion_mix[:, None]
+
         sig += percussion_mix
         
         # Apply final processing with improved limiting
@@ -527,7 +567,7 @@ class MindfulnessBGM:
         
         # Apply stereo enhancement with optional binaural enhancement
         if self.binaural_enhancement:
-            out_stereo = self.effects.apply_binaural_enhancement(sig, t)
+            out_stereo = sig
         else:
             out_stereo = self.effects.apply_stereo_enhancement(
                 sig, STEREO_DELAY_1, STEREO_DELAY_2, STEREO_MIX_1, STEREO_MIX_2
