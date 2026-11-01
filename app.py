@@ -106,9 +106,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(transport)
 
         self.settings = QWidget()
-        settings_layout = QVBoxLayout(self.settings)
+        settings_layout = QHBoxLayout(self.settings)
         settings_layout.setContentsMargins(0, 0, 0, 0)
         settings_layout.setSpacing(18)
+        self.basic_settings = QWidget()
+        self.basic_settings.setMinimumWidth(560)
+        basic_layout = QVBoxLayout(self.basic_settings)
+        basic_layout.setContentsMargins(0, 0, 0, 0)
+        basic_layout.setSpacing(18)
         basic = self._text_widget(QGroupBox, 'Sound')
         form = QFormLayout(basic)
         form.setVerticalSpacing(16)
@@ -157,14 +162,17 @@ class MainWindow(QMainWindow):
         ambient_layout.addWidget(self.ambient, 1)
         ambient_layout.addWidget(self.ambient_label)
         form.addRow(self._text_widget(QLabel, 'Ocean ambience'), ambient_row)
-        settings_layout.addWidget(basic)
+        basic_layout.addWidget(basic)
 
         self.advanced = self._text_widget(QCheckBox, 'Advanced sound settings')
-        settings_layout.addWidget(self.advanced)
+        basic_layout.addWidget(self.advanced)
+        basic_layout.addStretch()
+        settings_layout.addWidget(self.basic_settings, 1)
         tabs = QTabWidget()
         self.tabs = tabs
+        tabs.setMinimumWidth(480)
         tabs.setVisible(False)
-        self.advanced.toggled.connect(tabs.setVisible)
+        self.advanced.toggled.connect(self.toggle_advanced)
         harmony = QWidget()
         harmonic_form = QFormLayout(harmony)
         harmonic_form.setContentsMargins(18, 18, 18, 18)
@@ -183,7 +191,7 @@ class MainWindow(QMainWindow):
         harmonic_form.addRow(self._text_widget(QLabel, 'Progression style'), self.progression)
         self.evolution = self._text_widget(QCheckBox, 'Evolve harmonic movement over 30 minutes')
         self.evolution.setChecked(True)
-        self.binaural = self._text_widget(QCheckBox, 'Add subtle frequency differences between left and right channels')
+        self.binaural = self._text_widget(QCheckBox, 'Subtle left/right frequency differences')
         self.binaural.setChecked(True)
         harmonic_form.addRow(self.evolution)
         harmonic_form.addRow(self.binaural)
@@ -214,7 +222,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(note, 5, 0, 1, 3)
         grid.setRowStretch(6, 1)
         self._add_tab(intervals, 'Instrument Intervals')
-        settings_layout.addWidget(tabs)
+        settings_layout.addWidget(tabs, 1)
         layout.addWidget(self.settings, 1)
         self.sitting = QWidget()
         sitting_layout = QVBoxLayout(self.sitting)
@@ -264,6 +272,25 @@ class MainWindow(QMainWindow):
         for pair in self.intervals.values():
             for spin in pair:
                 spin.valueChanged.connect(self.mark_custom)
+
+    def toggle_advanced(self, expanded):
+        if expanded:
+            self._collapsed_width = self.width()
+            self._collapsed_minimum_width = self.minimumWidth()
+        self.tabs.setVisible(expanded)
+        # Keep the existing height; give the advanced panel space on the right.
+        self.settings.layout().activate()
+        self.centralWidget().layout().activate()
+        self.setMinimumWidth(self.centralWidget().minimumSizeHint().width()
+                             if expanded else self._collapsed_minimum_width)
+        if not self.isMaximized():
+            if expanded:
+                width = self._collapsed_width + self.tabs.sizeHint().width() + 18
+                width = min(width, max(self.minimumWidth(),
+                                       self.screen().availableGeometry().width()))
+            else:
+                width = self._collapsed_width
+            self.resize(width, self.height())
 
     def tr_text(self, message, **values):
         return translate(message, self.language_code, **values)

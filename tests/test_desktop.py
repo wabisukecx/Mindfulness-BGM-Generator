@@ -115,6 +115,31 @@ class DesktopTests(unittest.TestCase):
         high.setValue(10)
         self.assertLessEqual(low.value(), high.value())
 
+    def test_advanced_settings_expand_to_the_right_without_growing_taller(self):
+        width, height = self.window.width(), self.window.height()
+        self.window.volume.setValue(37)
+        self.window.advanced.setChecked(True)
+        self.qt.processEvents()
+        self.assertGreater(self.window.width(), width)
+        self.assertEqual(self.window.height(), height)
+        for language in ('en', 'ja'):
+            self.set_language(language)
+            left, right = self.window.basic_settings.geometry(), self.window.tabs.geometry()
+            self.assertGreater(right.left(), left.right())
+            self.assertEqual(right.top(), left.top())
+            self.assertTrue(self.window.settings.rect().contains(right))
+            for index in range(self.window.tabs.count()):
+                self.window.tabs.setCurrentIndex(index)
+                self.qt.processEvents()
+                page = self.window.tabs.widget(index)
+                self.assertGreaterEqual(page.height(), page.minimumSizeHint().height())
+        self.window.advanced.setChecked(False)
+        self.qt.processEvents()
+        self.assertEqual(self.window.width(), width)
+        self.assertEqual(self.window.height(), height)
+        self.assertFalse(self.window.tabs.isVisible())
+        self.assertEqual(self.window.volume.value(), 37)
+
     def test_stop_failure_still_closes_device_and_workers(self):
         self.click(self.window.start_button)
         threads = list(self.window.player.generator.schedulers)
