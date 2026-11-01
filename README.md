@@ -51,6 +51,7 @@ This application provides a real-time audio generation system that creates conti
 .
 ├── README.md                 # This file
 ├── README.ja.md              # Japanese user guide
+├── LICENSE                   # MIT License
 ├── requirements.txt          # Python dependencies
 ├── main.py                   # Command-line version
 ├── app.py                    # PyQt6 desktop interface
@@ -385,19 +386,17 @@ Listening quality and Raspberry Pi hardware performance require device testing.
 
 ## Version History
 
+- Unreleased - Make English the default GUI language, add a saved English/Japanese language switch and a Japanese user guide, and expand advanced sound settings to the right.
 - v1.8.0 - Add quiet incense/sitting presets, session timing, soft entry and timed exit, master volume, warm colors, and an uncluttered sitting view.
-
 - v1.7.0 - Replace the Streamlit interface with a Japanese PyQt6 desktop GUI, output selection, harmonic controls, and playback interruption handling.
-
 - v1.6.1 - Fix duplicate Web schedulers and stop cleanup, reset sound envelopes on sound changes, validate intervals, add disable flags, generate actual stereo detuning, and replace sub-audible ocean output with colored noise.
-
-- v1.0.0 - Initial release with basic features
-- v1.1.0 - Added Crystal Singing Bowl instrument
-- v1.2.0 - Enhanced ambient sounds and volume controls
-- v1.3.0 - Added Raspberry Pi optimization
-- v1.4.0 - Improved harmonic system and single instrument focus
-- v1.5.0 - Added adaptive modulation modes for different meditation styles
 - v1.6.0 - Extended harmonic features: richness levels, chord variety, progression styles
+- v1.5.0 - Added adaptive modulation modes for different meditation styles
+- v1.4.0 - Improved harmonic system and single instrument focus
+- v1.3.0 - Added Raspberry Pi optimization
+- v1.2.0 - Enhanced ambient sounds and volume controls
+- v1.1.0 - Added Crystal Singing Bowl instrument
+- v1.0.0 - Initial release with basic features
 
 ## Future Roadmap
 
@@ -407,3 +406,7 @@ Listening quality and Raspberry Pi hardware performance require device testing.
 - [ ] Mobile app development
 - [ ] AI-driven composition
 - [ ] User preference profiles
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

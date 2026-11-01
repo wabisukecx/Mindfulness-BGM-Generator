@@ -101,3 +101,7 @@ python main_rpiz2w.py
 ```
 
 macOS / Linuxでは、仮想環境を有効にして `python -m unittest discover -s tests -v` を実行します。聴感とRaspberry Pi実機での性能は、実際の機器での確認が必要です。
+
+## ライセンス
+
+このプロジェクトは [MIT License](LICENSE) で公開されています。
